@@ -439,6 +439,7 @@ const AcademyTab = ({ user }: { user: any }) => {
   const [selectedLesson, setSelectedLesson] = useState<any>(null)
   const [userProgress, setUserProgress] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeSection, setActiveSection] = useState<'courses' | 'library'>('courses')
 
   useEffect(() => {
     fetchCourses()
@@ -534,7 +535,27 @@ const AcademyTab = ({ user }: { user: any }) => {
         <p className="text-slate-500 mt-2">تعلم مبادئ التبادل العادل واكتسب المهارات اللازمة</p>
       </div>
 
-      {!selectedCourse ? (
+      {/* Tabs for Courses and Library */}
+      <div className="flex justify-center gap-4 mb-6">
+        <Button
+          onClick={() => setActiveSection('courses')}
+          className={`px-8 py-3 rounded-full ${activeSection === 'courses' ? 'gradient-emerald text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+        >
+          <BookOpen className="w-4 h-4 ml-2" />
+          الدورات
+        </Button>
+        <Button
+          onClick={() => setActiveSection('library')}
+          className={`px-8 py-3 rounded-full ${activeSection === 'library' ? 'gradient-emerald text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+        >
+          <Feather className="w-4 h-4 ml-2" />
+          مكتبة ميزان الوصل
+        </Button>
+      </div>
+
+      {activeSection === 'library' ? (
+        <LibraryTab user={user} toWesternNumbers={toWesternNumbers} />
+      ) : !selectedCourse ? (
         /* Courses Grid */
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.length === 0 ? (
@@ -727,6 +748,504 @@ const AcademyTab = ({ user }: { user: any }) => {
           </Card>
         </div>
       )}
+    </div>
+  )
+}
+
+// مكون مكتبة ميزان الوصل
+const LibraryTab = ({ user, toWesternNumbers }: { user: any; toWesternNumbers: (num: number | string) => string }) => {
+  const [books, setBooks] = useState<any[]>([])
+  const [selectedBook, setSelectedBook] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState({ category: 'all', isFree: 'all', search: '' })
+  const [userPurchases, setUserPurchases] = useState<Set<string>>(new Set())
+  const [userRatings, setUserRatings] = useState<Map<string, number>>(new Map())
+
+  const categories = [
+    { id: 'all', name: 'الكل', icon: BookOpen },
+    { id: 'فقه', name: 'فقه', icon: Scroll },
+    { id: 'تفسير', name: 'تفسير', icon: BookOpen },
+    { id: 'سيرة', name: 'سيرة', icon: Users },
+    { id: 'أخلاق', name: 'أخلاق', icon: Heart },
+    { id: 'تنمية بشرية', name: 'تنمية بشرية', icon: Sparkles },
+    { id: 'أخرى', name: 'أخرى', icon: Feather }
+  ]
+
+  useEffect(() => {
+    fetchBooks()
+  }, [])
+
+  const fetchBooks = async () => {
+    try {
+      const res = await fetch('/api/books')
+      const data = await res.json()
+      setBooks(data.books || [])
+    } catch (error) {
+      console.error('Error fetching books:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchBookDetails = async (bookId: string) => {
+    try {
+      const res = await fetch(`/api/books/${bookId}`)
+      const data = await res.json()
+      if (data.book) {
+        setSelectedBook(data.book)
+        if (data.hasPurchased) {
+          setUserPurchases(prev => new Set([...prev, bookId]))
+        }
+        if (data.userRating) {
+          setUserRatings(prev => new Map(prev).set(bookId, data.userRating.rating))
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching book details:', error)
+    }
+  }
+
+  const purchaseBook = async (bookId: string) => {
+    try {
+      const res = await fetch(`/api/books/${bookId}/purchase`, {
+        method: 'POST'
+      })
+      const data = await res.json()
+      if (data.success) {
+        setUserPurchases(prev => new Set([...prev, bookId]))
+        if (data.book?.isFree) {
+          // تنزيل الكتاب مباشرة للمجاني
+          downloadBook(data.book)
+        }
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Error purchasing book:', error)
+      return false
+    }
+  }
+
+  const rateBook = async (bookId: string, rating: number, review?: string) => {
+    try {
+      const res = await fetch(`/api/books/${bookId}/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating, review })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setUserRatings(prev => new Map(prev).set(bookId, rating))
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Error rating book:', error)
+      return false
+    }
+  }
+
+  const downloadBook = (book: any) => {
+    if (book.fileUrl) {
+      window.open(book.fileUrl, '_blank')
+    } else if (book.externalUrl) {
+      window.open(book.externalUrl, '_blank')
+    }
+  }
+
+  const filteredBooks = books.filter(book => {
+    if (filter.category !== 'all' && book.category !== filter.category) return false
+    if (filter.isFree === 'free' && !book.isFree) return false
+    if (filter.isFree === 'paid' && book.isFree) return false
+    if (filter.search) {
+      const search = filter.search.toLowerCase()
+      return book.title.toLowerCase().includes(search) || 
+             book.author?.toLowerCase().includes(search)
+    }
+    return true
+  })
+
+  const featuredBooks = books.filter(b => b.featured)
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <Feather className="w-16 h-16 mx-auto text-emerald-500 animate-pulse mb-4" />
+        <p className="text-slate-500">جاري تحميل المكتبة...</p>
+      </div>
+    )
+  }
+
+  if (selectedBook) {
+    return (
+      <BookDetailView 
+        book={selectedBook} 
+        hasPurchased={userPurchases.has(selectedBook.id)}
+        userRating={userRatings.get(selectedBook.id)}
+        onBack={() => setSelectedBook(null)}
+        onPurchase={() => purchaseBook(selectedBook.id)}
+        onRate={(rating, review) => rateBook(selectedBook.id, rating, review)}
+        onDownload={() => downloadBook(selectedBook)}
+        toWesternNumbers={toWesternNumbers}
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Featured Books */}
+      {featuredBooks.length > 0 && (
+        <div className="bg-gradient-to-l from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-200">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+            <h3 className="text-xl font-bold text-emerald-800">كتب مميزة</h3>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {featuredBooks.map((book) => (
+              <Card 
+                key={book.id} 
+                className="cursor-pointer hover:shadow-lg transition-all bg-white/80"
+                onClick={() => fetchBookDetails(book.id)}
+              >
+                <CardContent className="p-4 flex gap-4">
+                  {book.coverImage ? (
+                    <img src={book.coverImage} alt={book.title} className="w-16 h-20 object-cover rounded-lg shadow" />
+                  ) : (
+                    <div className="w-16 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center shadow">
+                      <BookOpen className="w-8 h-8 text-white" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h4 className="font-bold text-sm line-clamp-1">{book.title}</h4>
+                    <p className="text-xs text-slate-500">{book.author}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      {book.isFree ? (
+                        <Badge className="bg-emerald-500 text-white text-xs">مجاني</Badge>
+                      ) : (
+                        <Badge className="bg-amber-500 text-white text-xs">{toWesternNumbers(book.price)} {book.currency}</Badge>
+                      )}
+                      {book.rating > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-amber-600">
+                          <Star className="w-3 h-3 fill-amber-500" />
+                          {toWesternNumbers(book.rating)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <Card className="shadow-lg border-0">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-4 items-center justify-between">
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => (
+                <Button
+                  key={cat.id}
+                  size="sm"
+                  variant={filter.category === cat.id ? 'default' : 'outline'}
+                  onClick={() => setFilter({ ...filter, category: cat.id })}
+                  className={filter.category === cat.id ? 'gradient-emerald text-white' : ''}
+                >
+                  <cat.icon className="w-3 h-3 ml-1" />
+                  {cat.name}
+                </Button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Select value={filter.isFree} onValueChange={(v) => setFilter({ ...filter, isFree: v })}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  <SelectItem value="free">مجانية</SelectItem>
+                  <SelectItem value="paid">مدفوعة</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="بحث..."
+                  value={filter.search}
+                  onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+                  className="pr-9 w-48"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Books Grid */}
+      {filteredBooks.length === 0 ? (
+        <div className="text-center py-12">
+          <BookOpen className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+          <p className="text-slate-500">لا توجد كتب في هذه الفئة</p>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredBooks.map((book, index) => (
+            <motion.div
+              key={book.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="cursor-pointer"
+              onClick={() => fetchBookDetails(book.id)}
+            >
+              <Card className="shadow-lg border-0 overflow-hidden h-full hover:shadow-xl transition-all">
+                {/* Cover */}
+                <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-100 relative">
+                  {book.coverImage ? (
+                    <img src={book.coverImage} alt={book.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-purple-500">
+                      <BookOpen className="w-16 h-16 text-white/80" />
+                    </div>
+                  )}
+                  {/* Badges */}
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    {book.featured && (
+                      <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center shadow">
+                        <Star className="w-4 h-4 text-white fill-white" />
+                      </div>
+                    )}
+                    {book.isFree ? (
+                      <Badge className="bg-emerald-500 text-white">مجاني</Badge>
+                    ) : (
+                      <Badge className="bg-amber-500 text-white">{toWesternNumbers(book.price)} {book.currency}</Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Info */}
+                <CardContent className="p-4">
+                  <h4 className="font-bold text-lg line-clamp-1 mb-1">{book.title}</h4>
+                  <p className="text-sm text-slate-500 mb-2">{book.author || 'غير محدد'}</p>
+                  
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <Badge variant="outline">{book.category}</Badge>
+                    {book.rating > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                        <span>{toWesternNumbers(book.rating)}</span>
+                        <span>({toWesternNumbers(book.totalRatings)})</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-slate-400 mt-3">
+                    {book.pages && (
+                      <span>{toWesternNumbers(book.pages)} صفحة</span>
+                    )}
+                    <span>{toWesternNumbers(book.downloadCount)} تحميل</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// مكون تفاصيل الكتاب
+const BookDetailView = ({ 
+  book, 
+  hasPurchased, 
+  userRating,
+  onBack, 
+  onPurchase, 
+  onRate, 
+  onDownload,
+  toWesternNumbers 
+}: { 
+  book: any
+  hasPurchased: boolean
+  userRating?: number
+  onBack: () => void
+  onPurchase: () => Promise<boolean>
+  onRate: (rating: number, review?: string) => Promise<boolean>
+  onDownload: () => void
+  toWesternNumbers: (num: number | string) => string
+}) => {
+  const [rating, setRating] = useState(userRating || 0)
+  const [review, setReview] = useState('')
+  const [showRatingDialog, setShowRatingDialog] = useState(false)
+  const [purchasing, setPurchasing] = useState(false)
+
+  const handlePurchase = async () => {
+    setPurchasing(true)
+    const success = await onPurchase()
+    if (success && !book.isFree) {
+      onDownload()
+    }
+    setPurchasing(false)
+  }
+
+  const handleRate = async () => {
+    if (rating > 0) {
+      const success = await onRate(rating, review)
+      if (success) {
+        setShowRatingDialog(false)
+      }
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Button variant="ghost" onClick={onBack} className="mb-4">
+        <ArrowRight className="w-4 h-4 ml-2" />
+        العودة للمكتبة
+      </Button>
+
+      <Card className="shadow-xl border-0 overflow-hidden">
+        <div className="grid md:grid-cols-3 gap-0">
+          {/* Cover */}
+          <div className="bg-gradient-to-br from-indigo-100 to-purple-100 p-8 flex items-center justify-center">
+            {book.coverImage ? (
+              <img src={book.coverImage} alt={book.title} className="max-h-80 rounded-xl shadow-2xl" />
+            ) : (
+              <div className="w-48 h-64 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shadow-2xl">
+                <BookOpen className="w-20 h-20 text-white/80" />
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="md:col-span-2 p-8">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-3xl font-bold mb-2">{book.title}</h2>
+                {book.author && (
+                  <p className="text-lg text-slate-600">المؤلف: {book.author}</p>
+                )}
+              </div>
+              {book.featured && (
+                <Badge className="bg-amber-500 text-white px-3 py-1">
+                  <Star className="w-4 h-4 ml-1 fill-white" />
+                  كتاب مميز
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-3 mb-6">
+              <Badge variant="outline" className="text-sm">{book.category}</Badge>
+              {book.isFree ? (
+                <Badge className="bg-emerald-500 text-white">مجاني</Badge>
+              ) : (
+                <Badge className="bg-amber-500 text-white">{toWesternNumbers(book.price)} {book.currency}</Badge>
+              )}
+              {book.rating > 0 && (
+                <div className="flex items-center gap-1 bg-amber-100 px-2 py-1 rounded-full">
+                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  <span className="text-sm font-bold text-amber-700">{toWesternNumbers(book.rating)}</span>
+                  <span className="text-xs text-amber-600">({toWesternNumbers(book.totalRatings)})</span>
+                </div>
+              )}
+            </div>
+
+            {book.description && (
+              <p className="text-slate-600 leading-relaxed mb-6">{book.description}</p>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {book.pages && (
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <BookOpen className="w-5 h-5 mx-auto text-slate-400 mb-1" />
+                  <div className="font-bold">{toWesternNumbers(book.pages)}</div>
+                  <div className="text-xs text-slate-500">صفحة</div>
+                </div>
+              )}
+              <div className="text-center p-3 bg-slate-50 rounded-lg">
+                <Users className="w-5 h-5 mx-auto text-slate-400 mb-1" />
+                <div className="font-bold">{toWesternNumbers(book.downloadCount)}</div>
+                <div className="text-xs text-slate-500">تحميل</div>
+              </div>
+              <div className="text-center p-3 bg-slate-50 rounded-lg">
+                <Eye className="w-5 h-5 mx-auto text-slate-400 mb-1" />
+                <div className="font-bold">{toWesternNumbers(book.viewCount)}</div>
+                <div className="text-xs text-slate-500">مشاهدة</div>
+              </div>
+              <div className="text-center p-3 bg-slate-50 rounded-lg">
+                <Globe className="w-5 h-5 mx-auto text-slate-400 mb-1" />
+                <div className="font-bold">{book.language}</div>
+                <div className="text-xs text-slate-500">اللغة</div>
+              </div>
+            </div>
+
+            {book.publisher && (
+              <p className="text-sm text-slate-500 mb-1">الناشر: {book.publisher}</p>
+            )}
+            {book.publishYear && (
+              <p className="text-sm text-slate-500 mb-4">سنة النشر: {toWesternNumbers(book.publishYear)}</p>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-3">
+              {book.isFree || hasPurchased ? (
+                <>
+                  <Button onClick={onDownload} className="gradient-emerald text-white px-8">
+                    <Feather className="w-4 h-4 ml-2" />
+                    تحميل الكتاب
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowRatingDialog(true)}>
+                    <Star className="w-4 h-4 ml-2" />
+                    {userRating ? 'تعديل التقييم' : 'قيّم الكتاب'}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handlePurchase} disabled={purchasing} className="gradient-emerald text-white px-8">
+                  {purchasing ? 'جاري المعالجة...' : `شراء - ${toWesternNumbers(book.price)} ${book.currency}`}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Rating Dialog */}
+      <Dialog open={showRatingDialog} onOpenChange={setShowRatingDialog}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تقييم الكتاب</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex justify-center gap-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => setRating(star)}
+                  className="focus:outline-none"
+                >
+                  <Star 
+                    className={`w-10 h-10 transition-all ${star <= rating ? 'text-amber-500 fill-amber-500' : 'text-slate-300'}`} 
+                  />
+                </button>
+              ))}
+            </div>
+            <Textarea
+              placeholder="اكتب مراجعتك (اختياري)..."
+              value={review}
+              onChange={(e) => setReview(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRatingDialog(false)}>إلغاء</Button>
+            <Button onClick={handleRate} disabled={rating === 0} className="gradient-emerald text-white">
+              إرسال التقييم
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -447,3 +447,93 @@ model ProjectComment {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// مكتبة ميزان الوصل
+model Book {
+  id              String   @id @default(cuid())
+  
+  // معلومات الكتاب
+  title           String   // عنوان الكتاب
+  author          String?  // المؤلف
+  description     String?  // وصف الكتاب
+  coverImage      String?  // صورة الغلاف
+  
+  // التصنيف
+  category        String   // فئة الكتاب (فقه، تفسير، سيرة، أخلاق، تنمية بشرية، أخرى)
+  
+  // السعر والتوفر
+  isFree          Boolean  @default(true)  // مجاني أم بمقابل
+  price           Float    @default(0)     // السعر (للكتب غير المجانية)
+  currency        String   @default("ريال") // العملة
+  
+  // الملف
+  fileUrl         String?  // رابط ملف الكتاب (PDF)
+  externalUrl     String?  // رابط خارجي للكتاب
+  
+  // معلومات إضافية
+  pages           Int?     // عدد الصفحات
+  language        String   @default("العربية") // اللغة
+  publisher       String?  // الناشر
+  publishYear     Int?     // سنة النشر
+  isbn            String?  // رقم ISBN
+  
+  // التقييم والإحصائيات
+  rating          Float    @default(0) // متوسط التقييم
+  totalRatings    Int      @default(0) // عدد التقييمات
+  downloadCount   Int      @default(0) // عدد التحميلات
+  viewCount       Int      @default(0) // عدد المشاهدات
+  
+  // الحالة
+  status          String   @default("PUBLISHED") // DRAFT | PUBLISHED | ARCHIVED
+  featured        Boolean  @default(false) // كتاب مميز
+  order           Int      @default(0) // ترتيب العرض
+  
+  // التواريخ
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // العلاقات
+  ratings         BookRating[]
+  purchases       BookPurchase[]
+  
+  @@index([category])
+  @@index([isFree])
+  @@index([featured])
+}
+
+// تقييمات الكتب
+model BookRating {
+  id          String   @id @default(cuid())
+  bookId      String
+  userId      String
+  rating      Int      // 1-5
+  review      String?
+  
+  createdAt   DateTime @default(now())
+  
+  // العلاقات
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookId, userId]) // تقييم واحد لكل مستخدم لكل كتاب
+}
+
+// مشتريات الكتب
+model BookPurchase {
+  id          String   @id @default(cuid())
+  bookId      String
+  userId      String
+  
+  // تفاصيل الشراء
+  pricePaid   Float    // السعر المدفوع
+  currency    String   @default("ريال")
+  
+  // الحالة
+  status      String   @default("COMPLETED") // PENDING | COMPLETED | REFUNDED
+  
+  purchasedAt DateTime @default(now())
+  
+  // العلاقات
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookId, userId]) // شراء واحد لكل مستخدم لكل كتاب
+}
