@@ -11,26 +11,29 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  name           String
-  password       String
-  phone          String?
-  image          String?  // صورة الملف الشخصي
-  country        String?
-  city           String?
-  neighborhood   String?
-  timeBalance    Int      @default(300) // 5 ساعات = 300 دقيقة
-  integrityScore Int      @default(100)
-  trustLevel     String   @default("موثوق")
-  rating         Float    @default(0)
-  totalExchanges Int      @default(0)
-  covenantSigned Boolean  @default(false) // توقيع ميثاق الوصل والعهد
+  id               String   @id @default(cuid())
+  email            String   @unique
+  name             String
+  password         String
+  phone            String?
+  image            String?  // صورة الملف الشخصي
+  country          String?
+  city             String?
+  neighborhood     String?
+  timeBalance      Int      @default(300) // 5 ساعات = 300 دقيقة
+  integrityScore   Int      @default(100)
+  trustLevel       String   @default("موثوق")
+  rating           Float    @default(0)
+  totalExchanges   Int      @default(0)
+  covenantSigned   Boolean  @default(false) // توقيع ميثاق الوصل والعهد
   covenantSignedAt DateTime? // تاريخ توقيع الميثاق
-  isAdmin        Boolean  @default(false) // صلاحيات الخليفة المختار
-  isSuspended    Boolean  @default(false) // تعليق الحساب
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isAdmin          Boolean  @default(false) // صلاحيات الخليفة المختار
+  isSuspended      Boolean  @default(false) // تعليق الحساب
+  emailVerified    Boolean  @default(false) // التحقق من البريد
+  verificationToken String? @unique // رمز التحقق
+  verificationExpires DateTime? // تاريخ انتهاء رمز التحقق
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   services             Service[]
   products             Product[]
@@ -226,4 +229,19 @@ model Message {
   sender         User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiver       User          @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
   conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+// إعدادات البريد الإلكتروني
+model EmailSettings {
+  id            String   @id @default(cuid())
+  smtpHost      String   // خادم SMTP
+  smtpPort      Int      @default(587) // منفذ SMTP
+  smtpUser      String   // اسم المستخدم
+  smtpPassword  String   // كلمة المرور
+  fromEmail     String   // البريد المرسل
+  fromName      String   @default("ميزان الوصل") // اسم المرسل
+  useTLS        Boolean  @default(true) // استخدام TLS
+  emailVerified Boolean  @default(false) // تفعيل التحقق من البريد
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import crypto from 'crypto'
+import { sendVerificationEmail } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,10 @@ export async function POST(request: NextRequest) {
     // تشفير كلمة المرور
     const hashedPassword = crypto.createHash('sha256').update(password).digest('hex')
 
+    // التحقق من إعدادات البريد
+    const emailSettings = await db.emailSettings.findFirst()
+    const requireEmailVerification = emailSettings?.emailVerified === true
+
     // إنشاء المستخدم
     const user = await db.user.create({
       data: {
@@ -43,9 +48,16 @@ export async function POST(request: NextRequest) {
         integrityScore: 100,
         trustLevel: 'موثوق',
         covenantSigned: true,
-        covenantSignedAt: new Date()
+        covenantSignedAt: new Date(),
+        emailVerified: !requireEmailVerification // إذا لم يكن التحقق مطلوباً، اعتبره موثق
       }
     })
+
+    // إرسال بريد التحقق إذا كان مطلوباً
+    let verificationSent = false
+    if (requireEmailVerification) {
+      verificationSent = await sendVerificationEmail(user.id, user.email, user.name)
+    }
 
     // إنشاء إشعار ترحيب
     await db.notification.create({
@@ -71,8 +83,11 @@ export async function POST(request: NextRequest) {
         timeBalance: user.timeBalance,
         integrityScore: user.integrityScore,
         trustLevel: user.trustLevel,
-        covenantSigned: user.covenantSigned
-      }
+        covenantSigned: user.covenantSigned,
+        emailVerified: user.emailVerified
+      },
+      requireEmailVerification,
+      verificationSent
     })
 
     // تعيين cookie

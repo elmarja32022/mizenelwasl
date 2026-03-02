@@ -6,7 +6,8 @@ import {
   Shield, Users, Package, Briefcase, Bell, Megaphone, Settings,
   TrendingUp, Globe, MapPin, Clock, Star, AlertTriangle, CheckCircle,
   XCircle, Send, Plus, Trash2, Eye, Search, Filter, ChevronDown,
-  Award, Ban, UserCheck, UserX, Clock4, BarChart3, PieChart
+  Award, Ban, UserCheck, UserX, Clock4, BarChart3, PieChart, Mail,
+  Server, Key, TestTube
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,12 +59,26 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
     expiresAt: ''
   })
 
+  // إعدادات البريد
+  const [emailSettings, setEmailSettings] = useState({
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUser: '',
+    smtpPassword: '',
+    fromEmail: '',
+    fromName: 'ميزان الوصل',
+    useTLS: true,
+    emailVerified: false
+  })
+  const [testEmail, setTestEmail] = useState('')
+
   const { toast } = useToast()
 
   useEffect(() => {
     fetchStats()
     fetchLocations()
     fetchAnnouncements()
+    fetchEmailSettings()
   }, [])
 
   useEffect(() => {
@@ -126,6 +141,67 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
       }
     } catch (error) {
       console.error('Error fetching announcements:', error)
+    }
+  }
+
+  const fetchEmailSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/email-settings')
+      const data = await res.json()
+      if (res.ok && data.settings) {
+        setEmailSettings({
+          smtpHost: data.settings.smtpHost || '',
+          smtpPort: data.settings.smtpPort || 587,
+          smtpUser: data.settings.smtpUser || '',
+          smtpPassword: '', // لا نملأ كلمة المرور
+          fromEmail: data.settings.fromEmail || '',
+          fromName: data.settings.fromName || 'ميزان الوصل',
+          useTLS: data.settings.useTLS !== false,
+          emailVerified: data.settings.emailVerified === true
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching email settings:', error)
+    }
+  }
+
+  const saveEmailSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/email-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailSettings)
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الحفظ', description: 'تم حفظ إعدادات البريد بنجاح' })
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const testEmailSettings = async () => {
+    if (!testEmail) {
+      toast({ title: 'تنبيه', description: 'أدخل البريد الاختباري', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/admin/email-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testEmail })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الإرسال', description: 'تم إرسال البريد الاختباري بنجاح' })
+      } else {
+        toast({ title: 'خطأ', description: data.error || data.details, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
     }
   }
 
@@ -277,6 +353,7 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
               { id: 'users', icon: Users, label: 'إدارة الخلفاء' },
               { id: 'notifications', icon: Bell, label: 'إرسال إشعارات' },
               { id: 'announcements', icon: Megaphone, label: 'المنشورات الرسمية' },
+              { id: 'email', icon: Mail, label: 'إعدادات البريد' },
             ].map(item => (
               <button
                 key={item.id}
@@ -901,6 +978,170 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
                           )}
                         </div>
                       </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* Email Settings Section */}
+              {activeSection === 'email' && (
+                <motion.div
+                  key="email"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="max-w-3xl mx-auto space-y-6"
+                >
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Mail className="w-5 h-5 text-blue-500" />
+                        إعدادات خادم البريد (SMTP)
+                      </CardTitle>
+                      <CardDescription>
+                        قم بتكوين إعدادات البريد الإلكتروني لإرسال رسائل التحقق والإشعارات
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>خادم SMTP</Label>
+                          <div className="relative">
+                            <Server className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <Input
+                              value={emailSettings.smtpHost}
+                              onChange={(e) => setEmailSettings({...emailSettings, smtpHost: e.target.value})}
+                              placeholder="smtp.example.com"
+                              className="pr-9"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>المنفذ</Label>
+                          <Input
+                            type="number"
+                            value={emailSettings.smtpPort}
+                            onChange={(e) => setEmailSettings({...emailSettings, smtpPort: parseInt(e.target.value) || 587})}
+                            placeholder="587"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>اسم المستخدم</Label>
+                          <Input
+                            value={emailSettings.smtpUser}
+                            onChange={(e) => setEmailSettings({...emailSettings, smtpUser: e.target.value})}
+                            placeholder="user@example.com"
+                          />
+                        </div>
+                        <div>
+                          <Label>كلمة المرور</Label>
+                          <div className="relative">
+                            <Key className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <Input
+                              type="password"
+                              value={emailSettings.smtpPassword}
+                              onChange={(e) => setEmailSettings({...emailSettings, smtpPassword: e.target.value})}
+                              placeholder="••••••••"
+                              className="pr-9"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>البريد المرسل</Label>
+                          <Input
+                            value={emailSettings.fromEmail}
+                            onChange={(e) => setEmailSettings({...emailSettings, fromEmail: e.target.value})}
+                            placeholder="noreply@mizanelwasl.com"
+                          />
+                        </div>
+                        <div>
+                          <Label>اسم المرسل</Label>
+                          <Input
+                            value={emailSettings.fromName}
+                            onChange={(e) => setEmailSettings({...emailSettings, fromName: e.target.value})}
+                            placeholder="ميزان الوصل"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={emailSettings.useTLS}
+                            onChange={(e) => setEmailSettings({...emailSettings, useTLS: e.target.checked})}
+                            className="w-4 h-4 rounded border-slate-300"
+                          />
+                          <span className="text-sm">استخدام TLS</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={emailSettings.emailVerified}
+                            onChange={(e) => setEmailSettings({...emailSettings, emailVerified: e.target.checked})}
+                            className="w-4 h-4 rounded border-slate-300"
+                          />
+                          <span className="text-sm font-bold text-emerald-600">تفعيل التحقق من البريد للخلفاء الجدد</span>
+                        </label>
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button onClick={saveEmailSettings} className="w-full gradient-emerald text-white">
+                        <CheckCircle className="w-4 h-4 ml-2" />
+                        حفظ الإعدادات
+                      </Button>
+                    </CardFooter>
+                  </Card>
+
+                  {/* Test Email */}
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TestTube className="w-5 h-5 text-amber-500" />
+                        اختبار الإعدادات
+                      </CardTitle>
+                      <CardDescription>
+                        أرسل بريداً اختبارياً للتحقق من صحة الإعدادات
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex gap-3">
+                        <Input
+                          type="email"
+                          value={testEmail}
+                          onChange={(e) => setTestEmail(e.target.value)}
+                          placeholder="أدخل البريد الاختباري..."
+                          className="flex-1"
+                        />
+                        <Button onClick={testEmailSettings} variant="outline">
+                          <Send className="w-4 h-4 ml-2" />
+                          إرسال اختباري
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Info Card */}
+                  <Card className="border-0 shadow-lg bg-blue-50">
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <AlertTriangle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-blue-700">
+                          <p className="font-bold mb-1">ملاحظات مهمة:</p>
+                          <ul className="list-disc list-inside space-y-1 text-blue-600">
+                            <li>عند تفعيل "التحقق من البريد"، سيُطلب من كل خليفة جديد تأكيد بريده قبل استخدام المنصة</li>
+                            <li>المنفذ 587 هو الأكثر شيوعاً مع TLS</li>
+                            <li>المنفذ 465 يستخدم لـ SSL</li>
+                            <li>تأكد من السماح بالوصول من تطبيقات أقل أماناً في Gmail</li>
+                          </ul>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </motion.div>
