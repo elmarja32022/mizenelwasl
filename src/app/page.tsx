@@ -1055,6 +1055,32 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* الرسائل السريعة */}
+            <div>
+              <p className="text-xs text-slate-500 mb-2">رسائل سريعة:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { emoji: '👋', text: 'السلام عليكم' },
+                  { emoji: '🤲', text: 'بارك الله فيك' },
+                  { emoji: '✨', text: 'جزاك الله خيراً' },
+                  { emoji: '🤝', text: 'أريد التواصل معك' },
+                  { emoji: '💚', text: 'حياك الله' },
+                  { emoji: '🙏', text: 'الله يعطيك العافية' }
+                ].map((quick, i) => (
+                  <Button
+                    key={i}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs px-2 py-1 hover:bg-emerald-50 hover:border-emerald-300"
+                    onClick={() => setMessageContent(`${quick.emoji} ${quick.text}`)}
+                  >
+                    <span className="ml-1">{quick.emoji}</span>
+                    {quick.text}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <Textarea
               value={messageContent}
               onChange={(e) => setMessageContent(e.target.value)}
@@ -1114,6 +1140,40 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
               ))}
             </div>
           </ScrollArea>
+          
+          {/* الرسائل السريعة */}
+          <div className="mb-3">
+            <p className="text-xs text-slate-500 mb-2">رسائل سريعة:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { emoji: '🤲', text: 'بارك الله فيك' },
+                { emoji: '🎉', text: 'ألف مبروك' },
+                { emoji: '😊', text: 'دام فرحك' },
+                { emoji: '✨', text: 'جزاك الله خيراً' },
+                { emoji: '🌟', text: 'ما شاء الله' },
+                { emoji: '💫', text: 'الله يوفقك' },
+                { emoji: '🙏', text: 'الله يعطيك العافية' },
+                { emoji: '💚', text: 'حياك الله' },
+                { emoji: '🤝', text: 'شكراً لك' },
+                { emoji: '👋', text: 'السلام عليكم' }
+              ].map((quick, i) => (
+                <Button
+                  key={i}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs px-2 py-1 hover:bg-emerald-50 hover:border-emerald-300"
+                  onClick={() => {
+                    setMessageContent(`${quick.emoji} ${quick.text}`)
+                  }}
+                >
+                  <span className="ml-1">{quick.emoji}</span>
+                  {quick.text}
+                </Button>
+              ))}
+            </div>
+          </div>
+          
           <div className="flex gap-2">
             <Input
               value={messageContent}
