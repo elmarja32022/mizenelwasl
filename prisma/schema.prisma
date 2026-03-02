@@ -38,6 +38,12 @@ model User {
   userVotes            UserVote[]
   postVotes            PostVote[]
   notifications        Notification[]
+  
+  // الرسائل المباشرة
+  sentMessages        Message[]      @relation("SentMessages")
+  receivedMessages    Message[]      @relation("ReceivedMessages")
+  conversationsAsUser1 Conversation[] @relation("User1Conversations")
+  conversationsAsUser2 Conversation[] @relation("User2Conversations")
 }
 
 model Service {
@@ -168,4 +174,36 @@ model Category {
   type      String // SERVICE | PRODUCT
   icon      String?
   createdAt DateTime @default(now())
+}
+
+// المحادثات بين الخلفاء
+model Conversation {
+  id          String   @id @default(cuid())
+  user1Id     String
+  user2Id     String
+  lastMessage String?
+  lastMessageAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user1       User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2       User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages    Message[]
+  
+  @@unique([user1Id, user2Id])
+}
+
+// الرسائل المباشرة
+model Message {
+  id             String   @id @default(cuid())
+  content        String
+  read           Boolean  @default(false)
+  senderId       String
+  receiverId     String
+  conversationId String
+  createdAt      DateTime @default(now())
+  
+  sender         User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver       User          @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }

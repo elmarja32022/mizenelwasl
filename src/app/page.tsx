@@ -429,6 +429,379 @@ const BalanceScale = () => {
   )
 }
 
+// مكون تبويب الخلفاء والمراسلة
+const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
+  const [nearbyKhalifas, setNearbyKhalifas] = useState<any[]>([])
+  const [conversations, setConversations] = useState<any[]>([])
+  const [selectedKhalifa, setSelectedKhalifa] = useState<any>(null)
+  const [messageContent, setMessageContent] = useState('')
+  const [activeView, setActiveView] = useState<'list' | 'chat'>('list')
+  const [currentChat, setCurrentChat] = useState<any>(null)
+  const [messages, setMessages] = useState<any[]>([])
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const [nearbyRes, convRes] = await Promise.all([
+          fetch('/api/khalifas/nearby'),
+          fetch('/api/messages')
+        ])
+        const nearbyData = await nearbyRes.json()
+        const convData = await convRes.json()
+        setNearbyKhalifas(nearbyData.khalifas || [])
+        setStats(nearbyData.stats)
+        setConversations(convData.conversations || [])
+      } catch (error) {
+        console.error('Error loading data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  const startConversation = async (receiverId: string) => {
+    if (!messageContent.trim()) {
+      toast({ title: 'تنبيه', description: 'اكتب رسالة أولاً', variant: 'destructive' })
+      return
+    }
+
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiverId, content: messageContent })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم إرسال الرسالة', description: 'سيتم إشعار الخليفة برسالتك' })
+        setMessageContent('')
+        setSelectedKhalifa(null)
+        fetchConversations()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const openChat = async (conv: any) => {
+    try {
+      const res = await fetch(`/api/messages/${conv.id}`)
+      const data = await res.json()
+      setCurrentChat({ ...conv, otherUser: data.otherUser })
+      setMessages(data.messages || [])
+      setActiveView('chat')
+    } catch (error) {
+      console.error('Error opening chat:', error)
+    }
+  }
+
+  const sendMessage = async () => {
+    if (!messageContent.trim() || !currentChat) return
+
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          receiverId: currentChat.otherUser.id, 
+          content: messageContent 
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMessages([...messages, data.message])
+        setMessageContent('')
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+    }
+  }
+
+  const getProximityBadge = (level: string) => {
+    const badges: Record<string, { color: string; icon: string }> = {
+      'نفس الحي': { color: 'bg-green-500', icon: '🏠' },
+      'نفس المدينة': { color: 'bg-blue-500', icon: '🏙️' },
+      'نفس الدولة': { color: 'bg-amber-500', icon: '🌍' },
+      'دولة أخرى': { color: 'bg-slate-500', icon: '🌐' }
+    }
+    return badges[level] || { color: 'bg-gray-500', icon: '📍' }
+  }
+
+  const getTrustBadgeClass = (level: string) => {
+    const classes: Record<string, string> = {
+      'خليفة مميز': 'bg-emerald-500 text-white',
+      'خليفة صادق': 'bg-teal-500 text-white',
+      'خليفة موثوق': 'bg-blue-500 text-white',
+      'تحت المراقبة': 'bg-orange-500 text-white'
+    }
+    return classes[level] || 'bg-gray-500 text-white'
+  }
+
+  return (
+    <div className="space-y-6" dir="rtl">
+      {/* إحصائيات القرب */}
+      {stats && (
+        <div className="grid grid-cols-4 gap-4">
+          <Card className="text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+            <CardContent className="p-4">
+              <div className="text-2xl mb-1">🏠</div>
+              <div className="text-2xl font-bold text-green-700">{stats.sameNeighborhood}</div>
+              <div className="text-xs text-green-600">نفس الحي</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <CardContent className="p-4">
+              <div className="text-2xl mb-1">🏙️</div>
+              <div className="text-2xl font-bold text-blue-700">{stats.sameCity}</div>
+              <div className="text-xs text-blue-600">نفس المدينة</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+            <CardContent className="p-4">
+              <div className="text-2xl mb-1">🌍</div>
+              <div className="text-2xl font-bold text-amber-700">{stats.sameCountry}</div>
+              <div className="text-xs text-amber-600">نفس الدولة</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+            <CardContent className="p-4">
+              <div className="text-2xl mb-1">🌐</div>
+              <div className="text-2xl font-bold text-purple-700">{stats.otherCountries}</div>
+              <div className="text-xs text-purple-600">دول أخرى</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* قائمة المحادثات */}
+        <Card className="shadow-lg border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-blue-500" />
+              محادثاتي
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px]">
+              {conversations.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500">لا توجد محادثات بعد</p>
+                  <p className="text-xs text-gray-400 mt-2">ابدأ محادثة مع خليفة قريب</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {conversations.map((conv: any) => (
+                    <div
+                      key={conv.id}
+                      onClick={() => openChat(conv)}
+                      className="p-3 rounded-lg border hover:bg-blue-50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full gradient-emerald flex items-center justify-center text-white font-bold">
+                          {conv.otherUser?.name?.[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold truncate">{conv.otherUser?.name}</div>
+                          <div className="text-xs text-gray-500 truncate">{conv.lastMessage}</div>
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleDateString('ar-SA') : ''}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* الخلفاء القريبون */}
+        <div className="md:col-span-2">
+          <Card className="shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-emerald-500" />
+                الخلفاء القريبون
+                <Badge className="bg-emerald-100 text-emerald-700 mr-2">
+                  {nearbyKhalifas.length} خليفة
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                مرتبون حسب القرب الجغرافي للتلاحم والتكاتف
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                {nearbyKhalifas.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                    <p className="text-gray-500">لا يوجد خلفاء آخرون</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {nearbyKhalifas.map((k: any) => {
+                      const badge = getProximityBadge(k.proximityLevel)
+                      return (
+                        <motion.div
+                          key={k.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className="p-4 rounded-xl border hover:shadow-lg transition-all bg-white"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-full gradient-emerald flex items-center justify-center text-white font-bold text-lg">
+                                {k.name?.[0]}
+                              </div>
+                              <div>
+                                <div className="font-bold text-lg">{k.name}</div>
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                  <MapPin className="w-3 h-3" />
+                                  <span>{k.city || 'غير محدد'}{k.country ? `، ${k.country}` : ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={`${badge.color} text-white text-xs`}>
+                                {badge.icon} {k.proximityLevel}
+                              </Badge>
+                              <Badge className={getTrustBadgeClass(k.trustLevel)}>
+                                {k.trustLevel}
+                              </Badge>
+                              <Badge variant="outline" className="text-emerald-600">
+                                {k.integrityScore}% نزاهة
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between">
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {Math.floor(k.timeBalance / 60)} ساعة
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Handshake className="w-3 h-3" />
+                                {k.totalExchanges} تبادل
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => setSelectedKhalifa(k)}
+                              className="gradient-emerald text-white"
+                            >
+                              <MessageCircle className="w-4 h-4 ml-1" />
+                              مراسلة
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* نافذة بدء محادثة */}
+      <Dialog open={!!selectedKhalifa} onOpenChange={() => setSelectedKhalifa(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-emerald-500" />
+              رسالة جديدة
+            </DialogTitle>
+            <DialogDescription>
+              إلى: {selectedKhalifa?.name} • {selectedKhalifa?.proximityLevel}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              placeholder="اكتب رسالتك هنا..."
+              rows={4}
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={() => startConversation(selectedKhalifa?.id)}
+                className="flex-1 gradient-emerald text-white"
+              >
+                <Send className="w-4 h-4 ml-2" />
+                إرسال
+              </Button>
+              <Button variant="outline" onClick={() => setSelectedKhalifa(null)}>
+                إلغاء
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* نافذة المحادثة */}
+      <Dialog open={activeView === 'chat' && !!currentChat} onOpenChange={() => setActiveView('list')}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white">
+                {currentChat?.otherUser?.name?.[0]}
+              </div>
+              {currentChat?.otherUser?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {currentChat?.otherUser?.city} • {currentChat?.otherUser?.trustLevel}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[300px] mb-4">
+            <div className="space-y-3 p-2">
+              {messages.map((msg: any) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.senderId === user.id ? 'justify-start' : 'justify-end'}`}
+                >
+                  <div
+                    className={`max-w-[80%] p-3 rounded-xl ${
+                      msg.senderId === user.id
+                        ? 'bg-emerald-500 text-white rounded-bl-none'
+                        : 'bg-gray-100 text-gray-800 rounded-br-none'
+                    }`}
+                  >
+                    <p className="text-sm">{msg.content}</p>
+                    <p className="text-xs opacity-70 mt-1">
+                      {new Date(msg.createdAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          <div className="flex gap-2">
+            <Input
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              placeholder="اكتب رسالة..."
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+            />
+            <Button onClick={sendMessage} className="gradient-emerald text-white">
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
 // مكون كفة الميزان
 const ScalePan = ({ side, values, delay }: { side: 'left' | 'right'; values: any[]; delay: number }) => {
   return (
@@ -1324,11 +1697,12 @@ export default function HomePage() {
         </motion.div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-5 w-full max-w-2xl mx-auto mb-6 bg-white/80 backdrop-blur">
+          <TabsList className="grid grid-cols-6 w-full max-w-3xl mx-auto mb-6 bg-white/80 backdrop-blur">
             <TabsTrigger value="services" className="flex items-center gap-1 data-[state=active]:gradient-emerald data-[state=active]:text-white"><Briefcase className="w-4 h-4" /><span className="hidden sm:inline">الخدمات</span></TabsTrigger>
             <TabsTrigger value="products" className="flex items-center gap-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Package className="w-4 h-4" /><span className="hidden sm:inline">المنتجات</span></TabsTrigger>
+            <TabsTrigger value="khalifas" className="flex items-center gap-1 data-[state=active]:bg-blue-500 data-[state=active]:text-white"><Users className="w-4 h-4" /><span className="hidden sm:inline">الخلفاء</span></TabsTrigger>
             <TabsTrigger value="integrity" className="flex items-center gap-1 data-[state=active]:bg-teal-500 data-[state=active]:text-white"><Shield className="w-4 h-4" /><span className="hidden sm:inline">النزاهة</span></TabsTrigger>
-            <TabsTrigger value="community" className="flex items-center gap-1 data-[state=active]:bg-purple-500 data-[state=active]:text-white"><Users className="w-4 h-4" /><span className="hidden sm:inline">المجتمع</span></TabsTrigger>
+            <TabsTrigger value="community" className="flex items-center gap-1 data-[state=active]:bg-purple-500 data-[state=active]:text-white"><MessageCircle className="w-4 h-4" /><span className="hidden sm:inline">المجتمع</span></TabsTrigger>
             <TabsTrigger value="contact" className="flex items-center gap-1 data-[state=active]:bg-slate-600 data-[state=active]:text-white"><Phone className="w-4 h-4" /><span className="hidden sm:inline">تواصل</span></TabsTrigger>
           </TabsList>
 
@@ -1367,6 +1741,10 @@ export default function HomePage() {
               </CardContent></Card>
               <div className="md:col-span-2"><h3 className="text-xl font-bold mb-4">المنتجات المتاحة</h3><div className="grid gap-4">{products.length === 0 ? <Card className="text-center py-8"><CardContent><Package className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد منتجات</p></CardContent></Card> : products.map(p => <Card key={p.id} className="shadow-lg hover:shadow-xl transition-shadow"><CardContent className="p-4"><div className="flex justify-between items-start"><div className="flex-1"><div className="flex items-center gap-2 mb-2"><Badge className="bg-amber-500">{p.type === 'OFFER' ? 'عرض' : 'طلب'}</Badge><Badge variant="outline">{p.category}</Badge><Badge variant="outline" className="text-amber-600">{p.quality}</Badge></div><h4 className="font-bold text-lg">{p.name}</h4><p className="text-gray-600 text-sm">{p.description}</p><div className="text-sm text-gray-500 mt-2">{p.quantity} {p.unit} • {p.user.city}</div></div><div className="text-left"><div className="flex items-center gap-2 mb-2"><div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm">{p.user.name[0]}</div><div><div className="font-medium text-sm">{p.user.name}</div><Badge className={getTrustBadge(p.user.trustLevel).class + ' text-xs'}>{p.user.trustLevel}</Badge></div></div>{p.user.id !== user.id && <Button size="sm" onClick={() => handleExchangeRequest('PRODUCT', p.user.id, p.id, 60)} className="bg-amber-500 hover:bg-amber-600 text-white">طلب تبادل</Button>}</div></div></CardContent></Card>)}</div></div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="khalifas">
+            <KhalifasTab user={user} toast={toast} />
           </TabsContent>
 
           <TabsContent value="integrity">
