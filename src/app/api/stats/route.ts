@@ -10,44 +10,35 @@ export async function GET() {
       totalProducts,
       totalExchanges,
       completedExchanges,
-      recentUsers,
-      topCategories
+      totalHoursResult
     ] = await Promise.all([
       db.user.count(),
       db.service.count({ where: { status: 'ACTIVE' } }),
       db.product.count(),
       db.exchange.count(),
       db.exchange.count({ where: { status: 'COMPLETED' } }),
-      db.user.findMany({
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, name: true, city: true, trustLevel: true }
-      }),
-      db.service.groupBy({
-        by: ['category'],
-        _count: { id: true },
-        orderBy: { _count: { id: 'desc' } },
-        take: 5
+      // Aggregate instead of fetching all records
+      db.exchange.aggregate({
+        where: { status: 'COMPLETED' },
+        _sum: { timeAmount: true }
       })
     ])
 
-    // حساب الساعات المتداولة
-    const exchanges = await db.exchange.findMany({
-      where: { status: 'COMPLETED' },
-      select: { timeAmount: true }
-    })
-    const totalHoursExchanged = exchanges.reduce((sum, e) => sum + e.timeAmount, 0) / 60
+    const totalHoursExchanged = Math.round((totalHoursResult._sum.timeAmount || 0) / 60)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       totalUsers,
       totalServices,
       totalProducts,
       totalExchanges,
       completedExchanges,
-      totalHoursExchanged: Math.round(totalHoursExchanged),
-      recentUsers,
-      topCategories
+      totalHoursExchanged
     })
+    
+    // Add cache headers
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60')
+    
+    return response
   } catch (error) {
     console.error('Get stats error:', error)
     return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 })

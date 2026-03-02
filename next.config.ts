@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
+  },
+  // Enable compression
+  compress: true,
+  // Optimize images
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    remotePatterns: [],
+  },
 };
 
 export default nextConfig;

@@ -1,10 +1,20 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import crypto from 'crypto'
 
 // بيانات تجريبية
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Check if this is a Vercel deployment with read-only filesystem
+    const isVercel = process.env.VERCEL === '1'
+    
+    if (isVercel) {
+      return NextResponse.json({ 
+        error: 'هذه الميزة غير متوفرة في بيئة الإنتاج. قاعدة البيانات للقراءة فقط.',
+        hint: 'استخدم قاعدة بيانات سحابية مثل Vercel Postgres أو Supabase للبيانات الديناميكية.'
+      }, { status: 403 })
+    }
+    
     // التحقق من وجود بيانات مسبقة
     const existingUsers = await db.user.count()
     if (existingUsers > 0) {
