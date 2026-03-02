@@ -756,18 +756,28 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
           fetch('/api/messages')
         ])
         
-        if (!nearbyRes.ok || !convRes.ok) {
-          throw new Error('فشل في تحميل البيانات')
+        // معالجة استجابة الخلفاء القريبين
+        if (nearbyRes.ok) {
+          const nearbyData = await nearbyRes.json()
+          setNearbyKhalifas(nearbyData.khalifas || [])
+          setStats(nearbyData.stats)
+        } else {
+          console.error('Failed to load nearby khalifas:', nearbyRes.status)
+          setNearbyKhalifas([])
         }
         
-        const nearbyData = await nearbyRes.json()
-        const convData = await convRes.json()
-        setNearbyKhalifas(nearbyData.khalifas || [])
-        setStats(nearbyData.stats)
-        setConversations(convData.conversations || [])
+        // معالجة استجابة المحادثات
+        if (convRes.ok) {
+          const convData = await convRes.json()
+          setConversations(convData.conversations || [])
+        } else {
+          console.error('Failed to load conversations:', convRes.status)
+          setConversations([])
+        }
       } catch (error) {
         console.error('Error loading data:', error)
-        // لا نعرض خطأ للمستخدم - فقط نسجل الخطأ
+        setNearbyKhalifas([])
+        setConversations([])
       } finally {
         setLoading(false)
       }
