@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         type,
         category,
         duration: parseInt(duration),
-        images,
+        images: images ? JSON.stringify(images) : null,
         videoUrl,
         userId: sessionId
       }

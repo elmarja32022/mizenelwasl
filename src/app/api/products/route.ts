@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         quality: quality || 'جيد جداً',
         type,
         category,
-        images,
+        images: images ? JSON.stringify(images) : null,
         videoUrl,
         userId: sessionId
       }

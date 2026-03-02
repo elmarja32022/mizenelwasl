@@ -12,7 +12,7 @@ import {
   Menu, XCircle, Eye, Calendar, MapPin, HeartHandshake,
   Building, Timer, Gem, BadgeCheck, Smile, Gift, CircleDot,
   Sun, Moon, Leaf, Droplets, Wind, Sparkle, BookOpen,
-  Feather, Scroll, Signature
+  Feather, Scroll, Signature, Image as ImageIcon, Trash2, Upload
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -867,6 +867,7 @@ interface Service {
   category: string
   duration: number
   status: string
+  images?: string
   user: { id: string; name: string; city: string; trustLevel: string; integrityScore: number; rating: number }
 }
 
@@ -880,6 +881,7 @@ interface Product {
   quality: string
   type: string
   category: string
+  images?: string
   user: { id: string; name: string; city: string; trustLevel: string }
 }
 
@@ -931,8 +933,8 @@ export default function HomePage() {
   const [locations, setLocations] = useState<{countries: any[], cities: Record<string, string[]>} | null>(null)
   
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', phone: '', country: '', city: '', neighborhood: '' })
-  const [serviceForm, setServiceForm] = useState({ title: '', description: '', type: 'OFFER', category: '', duration: 60 })
-  const [productForm, setProductForm] = useState({ name: '', description: '', quantity: 1, unit: 'كيلو', quality: 'جيد جداً', type: 'OFFER', category: '' })
+  const [serviceForm, setServiceForm] = useState({ title: '', description: '', type: 'OFFER', category: '', duration: 60, images: [] as string[] })
+  const [productForm, setProductForm] = useState({ name: '', description: '', quantity: 1, unit: 'كيلو', quality: 'جيد جداً', type: 'OFFER', category: '', images: [] as string[] })
   const [postForm, setPostForm] = useState({ title: '', content: '', type: 'POST' })
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '', category: 'GENERAL' })
 
@@ -994,13 +996,40 @@ export default function HomePage() {
   }
 
   const handleLogout = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }); setUser(null); toast({ title: 'تم تسجيل الخروج' }) } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) } }
+
+  const handleImageUpload = async (files: FileList | null, type: 'service' | 'product'): Promise<string[]> => {
+    if (!files || files.length === 0) return []
+    
+    const formData = new FormData()
+    const validFiles = Array.from(files).slice(0, 4) // Max 4 images
+    validFiles.forEach(file => formData.append('images', file))
+    
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم رفع الصور', description: `تم رفع ${data.count} صورة بنجاح` })
+        return data.images
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+        return []
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ أثناء رفع الصور', variant: 'destructive' })
+      return []
+    }
+  }
+
   const handleAddService = async (e: React.FormEvent) => {
     e.preventDefault()
-    try { const res = await fetch('/api/services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(serviceForm) }); const data = await res.json(); if (data.success) { toast({ title: 'تم إضافة الخدمة' }); setServiceForm({ title: '', description: '', type: 'OFFER', category: '', duration: 60 }); fetchServices() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
+    try { const res = await fetch('/api/services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(serviceForm) }); const data = await res.json(); if (data.success) { toast({ title: 'تم إضافة الخدمة' }); setServiceForm({ title: '', description: '', type: 'OFFER', category: '', duration: 60, images: [] }); fetchServices() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
   }
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault()
-    try { const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(productForm) }); const data = await res.json(); if (data.success) { toast({ title: 'تم إضافة المنتج' }); setProductForm({ name: '', description: '', quantity: 1, unit: 'كيلو', quality: 'جيد جداً', type: 'OFFER', category: '' }); fetchProducts() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
+    try { const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(productForm) }); const data = await res.json(); if (data.success) { toast({ title: 'تم إضافة المنتج' }); setProductForm({ name: '', description: '', quantity: 1, unit: 'كيلو', quality: 'جيد جداً', type: 'OFFER', category: '', images: [] }); fetchProducts() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
   }
   const handleAddPost = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1717,12 +1746,89 @@ export default function HomePage() {
                     <div><Label>الفئة</Label><Select value={serviceForm.category} onValueChange={(v) => setServiceForm({...serviceForm, category: v})}><SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger><SelectContent>{getServiceCategories().map(c => <SelectItem key={c.id || c.name} value={c.name}>{c.nameAr}</SelectItem>)}</SelectContent></Select></div>
                   </div>
                   <div><Label>المدة (دقيقة)</Label><Input type="number" value={serviceForm.duration} onChange={(e) => setServiceForm({...serviceForm, duration: parseInt(e.target.value) || 60})} /></div>
-                  <Button type="submit" className="w-full gradient-emerald text-white">نشر الخدمة</Button>
+                  <div>
+                    <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4" />الصور (اختياري - حتى 4 صور)</Label>
+                    <div className="mt-2">
+                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-emerald-300 rounded-lg cursor-pointer hover:bg-emerald-50 transition-colors">
+                        <Upload className="w-6 h-6 text-emerald-500 mb-1" />
+                        <span className="text-sm text-gray-500">اضغط لاختيار صور</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          multiple 
+                          className="hidden" 
+                          onChange={async (e) => {
+                            const images = await handleImageUpload(e.target.files, 'service')
+                            if (images.length > 0) {
+                              setServiceForm({...serviceForm, images: [...serviceForm.images, ...images]})
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {serviceForm.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {serviceForm.images.map((img, i) => (
+                          <div key={i} className="relative">
+                            <img src={img} alt={`صورة ${i+1}`} className="w-16 h-16 object-cover rounded-lg border" />
+                            <button 
+                              type="button"
+                              onClick={() => setServiceForm({...serviceForm, images: serviceForm.images.filter((_, idx) => idx !== i)})}
+                              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button type="submit" className="w-full gradient-emerald text-white font-bold">نشر الخدمة</Button>
                 </form>
               </CardContent></Card>
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-4"><h3 className="text-xl font-bold">الخدمات المتاحة</h3><Select value={serviceFilter.type} onValueChange={(v) => { setServiceFilter({...serviceFilter, type: v}); setTimeout(fetchServices, 0) }}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ALL">الكل</SelectItem><SelectItem value="OFFER">عروض</SelectItem><SelectItem value="REQUEST">طلبات</SelectItem></SelectContent></Select></div>
-                <div className="grid gap-4">{services.length === 0 ? <Card className="text-center py-8"><CardContent><Briefcase className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد خدمات</p></CardContent></Card> : services.map(s => <Card key={s.id} className="shadow-lg hover:shadow-xl transition-shadow"><CardContent className="p-4"><div className="flex justify-between items-start"><div className="flex-1"><div className="flex items-center gap-2 mb-2"><Badge className={s.type === 'OFFER' ? 'gradient-emerald' : ''}>{s.type === 'OFFER' ? 'عرض' : 'طلب'}</Badge><Badge variant="outline">{s.category}</Badge></div><h4 className="font-bold text-lg">{s.title}</h4><p className="text-gray-600 text-sm">{s.description}</p><div className="flex items-center gap-4 text-sm text-gray-500 mt-2"><span className="flex items-center gap-1"><Clock className="w-4 h-4" />{formatTime(s.duration)}</span><span>{s.user.city}</span></div></div><div className="text-left"><div className="flex items-center gap-2 mb-2"><div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white text-sm">{s.user.name[0]}</div><div><div className="font-medium text-sm">{s.user.name}</div><Badge className={getTrustBadge(s.user.trustLevel).class + ' text-xs'}>{s.user.trustLevel}</Badge></div></div>{s.user.id !== user.id && <Button size="sm" onClick={() => handleExchangeRequest('SERVICE', s.user.id, s.id, s.duration)} className="gradient-emerald text-white">طلب تبادل</Button>}</div></div></CardContent></Card>)}</div>
+                <div className="grid gap-4">{services.length === 0 ? <Card className="text-center py-8"><CardContent><Briefcase className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد خدمات</p></CardContent></Card> : services.map(s => {
+                  const serviceImages = s.images ? JSON.parse(s.images) : []
+                  return <Card key={s.id} className="shadow-lg hover:shadow-xl transition-shadow"><CardContent className="p-4">
+                    <div className="flex gap-4">
+                      {serviceImages[0] && (
+                        <img src={serviceImages[0]} alt={s.title} className="w-24 h-24 object-cover rounded-lg shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge className={s.type === 'OFFER' ? 'gradient-emerald text-white' : 'bg-blue-500 text-white'}>{s.type === 'OFFER' ? 'عرض' : 'طلب'}</Badge>
+                              <Badge variant="outline">{s.category}</Badge>
+                            </div>
+                            <h4 className="font-bold text-lg">{s.title}</h4>
+                            <p className="text-gray-600 text-sm">{s.description}</p>
+                            <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
+                              <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{formatTime(s.duration)}</span>
+                              <span>{s.user.city}</span>
+                            </div>
+                          </div>
+                          <div className="text-left shrink-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white text-sm">{s.user.name[0]}</div>
+                              <div>
+                                <div className="font-medium text-sm">{s.user.name}</div>
+                                <Badge className={getTrustBadge(s.user.trustLevel).class + ' text-xs text-white'}>{s.user.trustLevel}</Badge>
+                              </div>
+                            </div>
+                            {s.user.id !== user.id && <Button size="sm" onClick={() => handleExchangeRequest('SERVICE', s.user.id, s.id, s.duration)} className="gradient-emerald text-white font-bold">طلب تبادل</Button>}
+                          </div>
+                        </div>
+                        {serviceImages.length > 1 && (
+                          <div className="flex gap-2 mt-2">
+                            {serviceImages.slice(1, 4).map((img: string, i: number) => (
+                              <img key={i} src={img} alt={`${s.title} ${i+2}`} className="w-12 h-12 object-cover rounded border" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent></Card>
+                })}</div>
               </div>
             </div>
           </TabsContent>
@@ -1736,10 +1842,85 @@ export default function HomePage() {
                   <div className="grid grid-cols-2 gap-2"><div><Label>الكمية</Label><Input type="number" value={productForm.quantity} onChange={(e) => setProductForm({...productForm, quantity: parseFloat(e.target.value) || 1})} /></div><div><Label>الوحدة</Label><Select value={productForm.unit} onValueChange={(v) => setProductForm({...productForm, unit: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="كيلو">كيلو</SelectItem><SelectItem value="لتر">لتر</SelectItem><SelectItem value="قطعة">قطعة</SelectItem></SelectContent></Select></div></div>
                   <div className="grid grid-cols-2 gap-2"><div><Label>النوع</Label><Select value={productForm.type} onValueChange={(v) => setProductForm({...productForm, type: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="OFFER">أعرض</SelectItem><SelectItem value="REQUEST">أطلب</SelectItem></SelectContent></Select></div><div><Label>الفئة</Label><Select value={productForm.category} onValueChange={(v) => setProductForm({...productForm, category: v})}><SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger><SelectContent>{getProductCategories().map(c => <SelectItem key={c.id || c.name} value={c.name}>{c.nameAr}</SelectItem>)}</SelectContent></Select></div></div>
                   <div><Label>الجودة</Label><Select value={productForm.quality} onValueChange={(v) => setProductForm({...productForm, quality: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ممتاز">ممتاز</SelectItem><SelectItem value="جيد جداً">جيد جداً</SelectItem><SelectItem value="جيد">جيد</SelectItem></SelectContent></Select></div>
-                  <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-white">نشر المنتج</Button>
+                  <div>
+                    <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4" />الصور (اختياري - حتى 4 صور)</Label>
+                    <div className="mt-2">
+                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-amber-300 rounded-lg cursor-pointer hover:bg-amber-50 transition-colors">
+                        <Upload className="w-6 h-6 text-amber-500 mb-1" />
+                        <span className="text-sm text-gray-500">اضغط لاختيار صور</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          multiple 
+                          className="hidden" 
+                          onChange={async (e) => {
+                            const images = await handleImageUpload(e.target.files, 'product')
+                            if (images.length > 0) {
+                              setProductForm({...productForm, images: [...productForm.images, ...images]})
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {productForm.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {productForm.images.map((img, i) => (
+                          <div key={i} className="relative">
+                            <img src={img} alt={`صورة ${i+1}`} className="w-16 h-16 object-cover rounded-lg border" />
+                            <button 
+                              type="button"
+                              onClick={() => setProductForm({...productForm, images: productForm.images.filter((_, idx) => idx !== i)})}
+                              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">نشر المنتج</Button>
                 </form>
               </CardContent></Card>
-              <div className="md:col-span-2"><h3 className="text-xl font-bold mb-4">المنتجات المتاحة</h3><div className="grid gap-4">{products.length === 0 ? <Card className="text-center py-8"><CardContent><Package className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد منتجات</p></CardContent></Card> : products.map(p => <Card key={p.id} className="shadow-lg hover:shadow-xl transition-shadow"><CardContent className="p-4"><div className="flex justify-between items-start"><div className="flex-1"><div className="flex items-center gap-2 mb-2"><Badge className="bg-amber-500">{p.type === 'OFFER' ? 'عرض' : 'طلب'}</Badge><Badge variant="outline">{p.category}</Badge><Badge variant="outline" className="text-amber-600">{p.quality}</Badge></div><h4 className="font-bold text-lg">{p.name}</h4><p className="text-gray-600 text-sm">{p.description}</p><div className="text-sm text-gray-500 mt-2">{p.quantity} {p.unit} • {p.user.city}</div></div><div className="text-left"><div className="flex items-center gap-2 mb-2"><div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm">{p.user.name[0]}</div><div><div className="font-medium text-sm">{p.user.name}</div><Badge className={getTrustBadge(p.user.trustLevel).class + ' text-xs'}>{p.user.trustLevel}</Badge></div></div>{p.user.id !== user.id && <Button size="sm" onClick={() => handleExchangeRequest('PRODUCT', p.user.id, p.id, 60)} className="bg-amber-500 hover:bg-amber-600 text-white">طلب تبادل</Button>}</div></div></CardContent></Card>)}</div></div>
+              <div className="md:col-span-2"><h3 className="text-xl font-bold mb-4">المنتجات المتاحة</h3><div className="grid gap-4">{products.length === 0 ? <Card className="text-center py-8"><CardContent><Package className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد منتجات</p></CardContent></Card> : products.map(p => {
+                const productImages = p.images ? JSON.parse(p.images) : []
+                return <Card key={p.id} className="shadow-lg hover:shadow-xl transition-shadow"><CardContent className="p-4">
+                  <div className="flex gap-4">
+                    {productImages[0] && (
+                      <img src={productImages[0]} alt={p.name} className="w-24 h-24 object-cover rounded-lg shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className="bg-amber-500 text-white">{p.type === 'OFFER' ? 'عرض' : 'طلب'}</Badge>
+                            <Badge variant="outline">{p.category}</Badge>
+                            <Badge variant="outline" className="text-amber-600 border-amber-300">{p.quality}</Badge>
+                          </div>
+                          <h4 className="font-bold text-lg">{p.name}</h4>
+                          <p className="text-gray-600 text-sm">{p.description}</p>
+                          <div className="text-sm text-gray-500 mt-2">{p.quantity} {p.unit} • {p.user.city}</div>
+                        </div>
+                        <div className="text-left shrink-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm">{p.user.name[0]}</div>
+                            <div>
+                              <div className="font-medium text-sm">{p.user.name}</div>
+                              <Badge className={getTrustBadge(p.user.trustLevel).class + ' text-xs text-white'}>{p.user.trustLevel}</Badge>
+                            </div>
+                          </div>
+                          {p.user.id !== user.id && <Button size="sm" onClick={() => handleExchangeRequest('PRODUCT', p.user.id, p.id, 60)} className="bg-amber-500 hover:bg-amber-600 text-white font-bold">طلب تبادل</Button>}
+                        </div>
+                      </div>
+                      {productImages.length > 1 && (
+                        <div className="flex gap-2 mt-2">
+                          {productImages.slice(1, 4).map((img: string, i: number) => (
+                            <img key={i} src={img} alt={`${p.name} ${i+2}`} className="w-12 h-12 object-cover rounded border" />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent></Card>
+              })}</div></div>
             </div>
           </TabsContent>
 
