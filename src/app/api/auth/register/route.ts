@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
     // إنشاء إشعار ترحيب
     await db.notification.create({
       data: {
-        type: 'SYSTEM',
-        title: 'مرحباً بك يا خليفة!',
-        message: `أهلاً ${name}! أصبحت "ابن الوصل" في مذهب ميزان الوصل. لا حدود • لا فوارق • رصيدك 5 ساعات. ابدأ رحلة العودة للأصل!`,
+        type: 'ANNOUNCEMENT',
+        title: 'مرحباً بكم في ميزان الوصل',
+        message: `يسرنا انضمامكم لمذهب ميزان الوصل. هذا المكان مخصص للتبادل العادل والتعاون بين الخلفاء. نرجو منكم الالتزام بميثاق الوصل والعهد.`,
         userId: user.id
       }
     })
