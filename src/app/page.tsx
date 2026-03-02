@@ -940,6 +940,8 @@ export default function HomePage() {
 
   const [serviceFilter, setServiceFilter] = useState({ type: 'ALL', category: '', city: '', search: '' })
   const [productFilter, setProductFilter] = useState({ type: '', category: '', city: '', search: '' })
+  const [selectedService, setSelectedService] = useState<Service | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   const { toast } = useToast()
 
@@ -1727,7 +1729,7 @@ export default function HomePage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-6 w-full max-w-3xl mx-auto mb-6 bg-white/80 backdrop-blur">
-            <TabsTrigger value="services" className="flex items-center gap-1 data-[state=active]:gradient-emerald data-[state=active]:text-white"><Briefcase className="w-4 h-4" /><span className="hidden sm:inline">الخدمات</span></TabsTrigger>
+            <TabsTrigger value="services" className="flex items-center gap-1 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Briefcase className="w-4 h-4" /><span className="hidden sm:inline">الخدمات</span></TabsTrigger>
             <TabsTrigger value="products" className="flex items-center gap-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Package className="w-4 h-4" /><span className="hidden sm:inline">المنتجات</span></TabsTrigger>
             <TabsTrigger value="khalifas" className="flex items-center gap-1 data-[state=active]:bg-blue-500 data-[state=active]:text-white"><Users className="w-4 h-4" /><span className="hidden sm:inline">الخلفاء</span></TabsTrigger>
             <TabsTrigger value="integrity" className="flex items-center gap-1 data-[state=active]:bg-teal-500 data-[state=active]:text-white"><Shield className="w-4 h-4" /><span className="hidden sm:inline">النزاهة</span></TabsTrigger>
@@ -1788,23 +1790,27 @@ export default function HomePage() {
                 <div className="flex items-center justify-between mb-4"><h3 className="text-xl font-bold">الخدمات المتاحة</h3><Select value={serviceFilter.type} onValueChange={(v) => { setServiceFilter({...serviceFilter, type: v}); setTimeout(fetchServices, 0) }}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ALL">الكل</SelectItem><SelectItem value="OFFER">عروض</SelectItem><SelectItem value="REQUEST">طلبات</SelectItem></SelectContent></Select></div>
                 <div className="grid gap-4">{services.length === 0 ? <Card className="text-center py-8"><CardContent><Briefcase className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد خدمات</p></CardContent></Card> : services.map(s => {
                   const serviceImages = s.images ? JSON.parse(s.images) : []
-                  return <Card key={s.id} className="shadow-lg hover:shadow-xl transition-shadow"><CardContent className="p-4">
+                  return <Card key={s.id} className="shadow-lg hover:shadow-xl transition-all cursor-pointer hover:border-emerald-300 border-2 border-transparent" onClick={() => setSelectedService(s)}><CardContent className="p-4">
                     <div className="flex gap-4">
-                      {serviceImages[0] && (
+                      {serviceImages[0] ? (
                         <img src={serviceImages[0]} alt={s.title} className="w-24 h-24 object-cover rounded-lg shrink-0" />
+                      ) : (
+                        <div className="w-24 h-24 bg-emerald-100 rounded-lg shrink-0 flex items-center justify-center">
+                          <Briefcase className="w-10 h-10 text-emerald-400" />
+                        </div>
                       )}
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <Badge className={s.type === 'OFFER' ? 'gradient-emerald text-white' : 'bg-blue-500 text-white'}>{s.type === 'OFFER' ? 'عرض' : 'طلب'}</Badge>
+                              <Badge className={s.type === 'OFFER' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'}>{s.type === 'OFFER' ? 'عرض' : 'طلب'}</Badge>
                               <Badge variant="outline">{s.category}</Badge>
                             </div>
                             <h4 className="font-bold text-lg">{s.title}</h4>
-                            <p className="text-gray-600 text-sm">{s.description}</p>
+                            <p className="text-gray-600 text-sm line-clamp-2">{s.description}</p>
                             <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
                               <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{formatTime(s.duration)}</span>
-                              <span>{s.user.city}</span>
+                              <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.user.city || 'غير محدد'}</span>
                             </div>
                           </div>
                           <div className="text-left shrink-0">
@@ -1815,7 +1821,6 @@ export default function HomePage() {
                                 <Badge className={getTrustBadge(s.user.trustLevel).class + ' text-xs text-white'}>{s.user.trustLevel}</Badge>
                               </div>
                             </div>
-                            {s.user.id !== user.id && <Button size="sm" onClick={() => handleExchangeRequest('SERVICE', s.user.id, s.id, s.duration)} className="gradient-emerald text-white font-bold">طلب تبادل</Button>}
                           </div>
                         </div>
                         {serviceImages.length > 1 && (
@@ -1823,6 +1828,9 @@ export default function HomePage() {
                             {serviceImages.slice(1, 4).map((img: string, i: number) => (
                               <img key={i} src={img} alt={`${s.title} ${i+2}`} className="w-12 h-12 object-cover rounded border" />
                             ))}
+                            {serviceImages.length > 4 && (
+                              <div className="w-12 h-12 bg-slate-100 rounded flex items-center justify-center text-xs text-slate-500">+{serviceImages.length - 4}</div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1882,10 +1890,14 @@ export default function HomePage() {
               </CardContent></Card>
               <div className="md:col-span-2"><h3 className="text-xl font-bold mb-4">المنتجات المتاحة</h3><div className="grid gap-4">{products.length === 0 ? <Card className="text-center py-8"><CardContent><Package className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد منتجات</p></CardContent></Card> : products.map(p => {
                 const productImages = p.images ? JSON.parse(p.images) : []
-                return <Card key={p.id} className="shadow-lg hover:shadow-xl transition-shadow"><CardContent className="p-4">
+                return <Card key={p.id} className="shadow-lg hover:shadow-xl transition-all cursor-pointer hover:border-amber-300 border-2 border-transparent" onClick={() => setSelectedProduct(p)}><CardContent className="p-4">
                   <div className="flex gap-4">
-                    {productImages[0] && (
+                    {productImages[0] ? (
                       <img src={productImages[0]} alt={p.name} className="w-24 h-24 object-cover rounded-lg shrink-0" />
+                    ) : (
+                      <div className="w-24 h-24 bg-amber-100 rounded-lg shrink-0 flex items-center justify-center">
+                        <Package className="w-10 h-10 text-amber-400" />
+                      </div>
                     )}
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
@@ -1896,8 +1908,11 @@ export default function HomePage() {
                             <Badge variant="outline" className="text-amber-600 border-amber-300">{p.quality}</Badge>
                           </div>
                           <h4 className="font-bold text-lg">{p.name}</h4>
-                          <p className="text-gray-600 text-sm">{p.description}</p>
-                          <div className="text-sm text-gray-500 mt-2">{p.quantity} {p.unit} • {p.user.city}</div>
+                          <p className="text-gray-600 text-sm line-clamp-2">{p.description}</p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
+                            <span>{p.quantity} {p.unit}</span>
+                            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.user.city || 'غير محدد'}</span>
+                          </div>
                         </div>
                         <div className="text-left shrink-0">
                           <div className="flex items-center gap-2 mb-2">
@@ -1907,7 +1922,6 @@ export default function HomePage() {
                               <Badge className={getTrustBadge(p.user.trustLevel).class + ' text-xs text-white'}>{p.user.trustLevel}</Badge>
                             </div>
                           </div>
-                          {p.user.id !== user.id && <Button size="sm" onClick={() => handleExchangeRequest('PRODUCT', p.user.id, p.id, 60)} className="bg-amber-500 hover:bg-amber-600 text-white font-bold">طلب تبادل</Button>}
                         </div>
                       </div>
                       {productImages.length > 1 && (
@@ -1915,6 +1929,9 @@ export default function HomePage() {
                           {productImages.slice(1, 4).map((img: string, i: number) => (
                             <img key={i} src={img} alt={`${p.name} ${i+2}`} className="w-12 h-12 object-cover rounded border" />
                           ))}
+                          {productImages.length > 4 && (
+                            <div className="w-12 h-12 bg-slate-100 rounded flex items-center justify-center text-xs text-slate-500">+{productImages.length - 4}</div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1975,6 +1992,216 @@ export default function HomePage() {
           <ScrollArea className="max-h-[85vh] p-6">
             <CovenantCharter agreed={true} />
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Service Details Modal */}
+      <Dialog open={!!selectedService} onOpenChange={() => setSelectedService(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{selectedService?.title}</DialogTitle>
+            <DialogDescription>تفاصيل الخدمة</DialogDescription>
+          </DialogHeader>
+          {selectedService && (() => {
+            const serviceImages = selectedService.images ? JSON.parse(selectedService.images) : []
+            return (
+              <div className="p-6" dir="rtl">
+                {/* Images Gallery */}
+                {serviceImages.length > 0 && (
+                  <div className="mb-4">
+                    <div className="relative w-full h-64 rounded-xl overflow-hidden bg-slate-100">
+                      <img 
+                        src={serviceImages[0]} 
+                        alt={selectedService.title} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    {serviceImages.length > 1 && (
+                      <div className="flex gap-2 mt-2 overflow-x-auto">
+                        {serviceImages.map((img: string, i: number) => (
+                          <img 
+                            key={i} 
+                            src={img} 
+                            alt={`${selectedService.title} ${i+1}`} 
+                            className="w-20 h-20 object-cover rounded-lg border-2 border-transparent hover:border-emerald-500 cursor-pointer shrink-0"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Service Info */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Badge className={selectedService.type === 'OFFER' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'}>
+                      {selectedService.type === 'OFFER' ? 'عرض خدمة' : 'طلب خدمة'}
+                    </Badge>
+                    <Badge variant="outline">{selectedService.category}</Badge>
+                  </div>
+                  
+                  <h2 className="text-2xl font-bold text-slate-800">{selectedService.title}</h2>
+                  <p className="text-slate-600 leading-relaxed">{selectedService.description || 'لا يوجد وصف'}</p>
+                  
+                  <div className="flex items-center gap-4 text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      {formatTime(selectedService.duration)}
+                    </span>
+                  </div>
+                  
+                  {/* Provider Info */}
+                  <div className="p-4 bg-slate-50 rounded-xl">
+                    <h4 className="font-bold text-slate-700 mb-2">مقدم الخدمة</h4>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full gradient-emerald flex items-center justify-center text-white text-lg font-bold">
+                        {selectedService.user.name[0]}
+                      </div>
+                      <div>
+                        <div className="font-bold">{selectedService.user.name}</div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getTrustBadge(selectedService.user.trustLevel).class + ' text-white text-xs'}>
+                            {selectedService.user.trustLevel}
+                          </Badge>
+                          <span className="text-sm text-slate-500">{selectedService.user.integrityScore}% نزاهة</span>
+                        </div>
+                        {selectedService.user.city && (
+                          <div className="flex items-center gap-1 text-sm text-slate-500 mt-1">
+                            <MapPin className="w-3 h-3" />
+                            {selectedService.user.city}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Actions */}
+                <div className="flex gap-3 mt-6">
+                  {selectedService.user.id !== user.id && (
+                    <Button 
+                      onClick={() => {
+                        handleExchangeRequest('SERVICE', selectedService.user.id, selectedService.id, selectedService.duration)
+                        setSelectedService(null)
+                      }}
+                      className="flex-1 gradient-emerald text-white font-bold py-3"
+                    >
+                      <Handshake className="w-5 h-5 ml-2" />
+                      طلب تبادل
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setSelectedService(null)} className="px-6">
+                    إغلاق
+                  </Button>
+                </div>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Details Modal */}
+      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{selectedProduct?.name}</DialogTitle>
+            <DialogDescription>تفاصيل المنتج</DialogDescription>
+          </DialogHeader>
+          {selectedProduct && (() => {
+            const productImages = selectedProduct.images ? JSON.parse(selectedProduct.images) : []
+            return (
+              <div className="p-6" dir="rtl">
+                {/* Images Gallery */}
+                {productImages.length > 0 && (
+                  <div className="mb-4">
+                    <div className="relative w-full h-64 rounded-xl overflow-hidden bg-slate-100">
+                      <img 
+                        src={productImages[0]} 
+                        alt={selectedProduct.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    {productImages.length > 1 && (
+                      <div className="flex gap-2 mt-2 overflow-x-auto">
+                        {productImages.map((img: string, i: number) => (
+                          <img 
+                            key={i} 
+                            src={img} 
+                            alt={`${selectedProduct.name} ${i+1}`} 
+                            className="w-20 h-20 object-cover rounded-lg border-2 border-transparent hover:border-amber-500 cursor-pointer shrink-0"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Product Info */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-amber-500 text-white">
+                      {selectedProduct.type === 'OFFER' ? 'عرض منتج' : 'طلب منتج'}
+                    </Badge>
+                    <Badge variant="outline">{selectedProduct.category}</Badge>
+                    <Badge variant="outline" className="text-amber-600 border-amber-300">{selectedProduct.quality}</Badge>
+                  </div>
+                  
+                  <h2 className="text-2xl font-bold text-slate-800">{selectedProduct.name}</h2>
+                  <p className="text-slate-600 leading-relaxed">{selectedProduct.description || 'لا يوجد وصف'}</p>
+                  
+                  <div className="flex items-center gap-4 text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <Package className="w-4 h-4" />
+                      {selectedProduct.quantity} {selectedProduct.unit}
+                    </span>
+                  </div>
+                  
+                  {/* Provider Info */}
+                  <div className="p-4 bg-slate-50 rounded-xl">
+                    <h4 className="font-bold text-slate-700 mb-2">صاحب المنتج</h4>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center text-white text-lg font-bold">
+                        {selectedProduct.user.name[0]}
+                      </div>
+                      <div>
+                        <div className="font-bold">{selectedProduct.user.name}</div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getTrustBadge(selectedProduct.user.trustLevel).class + ' text-white text-xs'}>
+                            {selectedProduct.user.trustLevel}
+                          </Badge>
+                        </div>
+                        {selectedProduct.user.city && (
+                          <div className="flex items-center gap-1 text-sm text-slate-500 mt-1">
+                            <MapPin className="w-3 h-3" />
+                            {selectedProduct.user.city}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Actions */}
+                <div className="flex gap-3 mt-6">
+                  {selectedProduct.user.id !== user.id && (
+                    <Button 
+                      onClick={() => {
+                        handleExchangeRequest('PRODUCT', selectedProduct.user.id, selectedProduct.id, 60)
+                        setSelectedProduct(null)
+                      }}
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3"
+                    >
+                      <Handshake className="w-5 h-5 ml-2" />
+                      طلب تبادل
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setSelectedProduct(null)} className="px-6">
+                    إغلاق
+                  </Button>
+                </div>
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 
