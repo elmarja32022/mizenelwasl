@@ -13,7 +13,7 @@ import {
   Building, Timer, Gem, BadgeCheck, Smile, Gift, CircleDot,
   Sun, Moon, Leaf, Droplets, Wind, Sparkle, BookOpen,
   Feather, Scroll, Signature, Image as ImageIcon, Trash2, Upload,
-  Lock
+  Lock, GraduationCap, Play, Check
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -427,6 +427,306 @@ const BalanceScale = () => {
         </motion.div>
 
       </div>
+    </div>
+  )
+}
+
+// مكون تبويب الأكاديمية
+const AcademyTab = ({ user }: { user: any }) => {
+  const [courses, setCourses] = useState<any[]>([])
+  const [selectedCourse, setSelectedCourse] = useState<any>(null)
+  const [lessons, setLessons] = useState<any[]>([])
+  const [selectedLesson, setSelectedLesson] = useState<any>(null)
+  const [userProgress, setUserProgress] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchCourses()
+  }, [])
+
+  useEffect(() => {
+    if (selectedCourse) {
+      fetchLessons(selectedCourse.id)
+    }
+  }, [selectedCourse])
+
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch('/api/academy')
+      const data = await res.json()
+      setCourses(data.courses || [])
+      if (data.courses?.length > 0) {
+        setUserProgress(data.progress || [])
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchLessons = async (courseId: string) => {
+    try {
+      const res = await fetch(`/api/academy/progress?courseId=${courseId}`)
+      const data = await res.json()
+      setLessons(data.lessons || [])
+    } catch (error) {
+      console.error('Error fetching lessons:', error)
+    }
+  }
+
+  const markLessonComplete = async (lessonId: string) => {
+    try {
+      const res = await fetch('/api/academy/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId, completed: true })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setUserProgress([...userProgress, data.progress])
+        if (selectedCourse) {
+          fetchLessons(selectedCourse.id)
+        }
+      }
+    } catch (error) {
+      console.error('Error marking lesson complete:', error)
+    }
+  }
+
+  const isLessonCompleted = (lessonId: string) => {
+    return userProgress.some(p => p.lessonId === lessonId && p.completed)
+  }
+
+  const getCourseProgress = (course: any) => {
+    const courseLessons = course.lessons || []
+    if (courseLessons.length === 0) return 0
+    const completed = courseLessons.filter((l: any) => isLessonCompleted(l.id)).length
+    return Math.round((completed / courseLessons.length) * 100)
+  }
+
+  const toWesternNumbers = (num: number | string): string => {
+    const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
+    let result = String(num)
+    arabicNums.forEach((arabic, western) => {
+      result = result.replace(new RegExp(arabic, 'g'), String(western))
+    })
+    return result
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <GraduationCap className="w-16 h-16 mx-auto text-indigo-500 animate-pulse mb-4" />
+        <p className="text-slate-500">جاري تحميل الأكاديمية...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6" dir="rtl">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 mx-auto flex items-center justify-center shadow-xl mb-4">
+          <GraduationCap className="w-10 h-10 text-white" />
+        </div>
+        <h2 className="text-3xl font-bold text-slate-800">أكاديمية ميزان الوصل</h2>
+        <p className="text-slate-500 mt-2">تعلم مبادئ التبادل العادل واكتسب المهارات اللازمة</p>
+      </div>
+
+      {!selectedCourse ? (
+        /* Courses Grid */
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {courses.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <BookOpen className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+              <p className="text-slate-500">لا توجد دورات متاحة حالياً</p>
+              <p className="text-xs text-slate-400 mt-2">سيتم إضافة دورات قريباً</p>
+            </div>
+          ) : (
+            courses.map((course) => {
+              const progress = getCourseProgress(course)
+              const colorClasses: Record<string, string> = {
+                emerald: 'from-emerald-500 to-teal-600',
+                blue: 'from-blue-500 to-indigo-600',
+                amber: 'from-amber-500 to-orange-600',
+                purple: 'from-purple-500 to-violet-600'
+              }
+              const colorClass = colorClasses[course.color] || colorClasses.emerald
+              
+              return (
+                <motion.div
+                  key={course.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -5 }}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedCourse(course)}
+                >
+                  <Card className="shadow-lg border-0 overflow-hidden h-full">
+                    <div className={`h-32 bg-gradient-to-br ${colorClass} flex items-center justify-center`}>
+                      <BookOpen className="w-16 h-16 text-white/80" />
+                    </div>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">{course.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">{course.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-4">
+                      <div className="flex items-center justify-between text-sm text-slate-500 mb-3">
+                        <span>{toWesternNumbers(course.totalLessons || course._count?.lessons || 0)} درس</span>
+                        {progress > 0 && (
+                          <Badge className="bg-indigo-100 text-indigo-700">{toWesternNumbers(progress)}% مكتمل</Badge>
+                        )}
+                      </div>
+                      {progress > 0 && (
+                        <Progress value={progress} className="h-2" />
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })
+          )}
+        </div>
+      ) : !selectedLesson ? (
+        /* Course Lessons */
+        <div>
+          <Button
+            variant="ghost"
+            onClick={() => setSelectedCourse(null)}
+            className="mb-4"
+          >
+            <ArrowRight className="w-4 h-4 ml-2" />
+            العودة للدورات
+          </Button>
+          
+          <Card className="shadow-lg border-0 mb-6">
+            <CardHeader>
+              <CardTitle className="text-2xl">{selectedCourse.title}</CardTitle>
+              <CardDescription>{selectedCourse.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4 text-sm text-slate-500">
+                <span>{toWesternNumbers(lessons.length)} درس</span>
+                <span>•</span>
+                <span>{toWesternNumbers(getCourseProgress(selectedCourse))}% مكتمل</span>
+              </div>
+              <Progress value={getCourseProgress(selectedCourse)} className="h-3 mt-3" />
+            </CardContent>
+          </Card>
+
+          <div className="space-y-3">
+            {lessons.map((lesson: any, index: number) => {
+              const completed = isLessonCompleted(lesson.id)
+              return (
+                <motion.div
+                  key={lesson.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card 
+                    className={`shadow cursor-pointer transition-all hover:shadow-lg ${completed ? 'border-emerald-200 bg-emerald-50/50' : ''}`}
+                    onClick={() => setSelectedLesson(lesson)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${completed ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                            {completed ? (
+                              <Check className="w-5 h-5 text-white" />
+                            ) : (
+                              <span className="font-bold text-slate-600">{toWesternNumbers(index + 1)}</span>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-bold">{lesson.title}</h4>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                              {lesson.duration && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {toWesternNumbers(lesson.duration)} دقيقة
+                                </span>
+                              )}
+                              {lesson.videoUrl && (
+                                <span className="flex items-center gap-1">
+                                  <Play className="w-3 h-3" />
+                                  فيديو
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button size="sm" className="gradient-emerald text-white">
+                          {completed ? 'مراجعة' : 'ابدأ'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        /* Lesson View */
+        <div>
+          <Button
+            variant="ghost"
+            onClick={() => setSelectedLesson(null)}
+            className="mb-4"
+          >
+            <ArrowRight className="w-4 h-4 ml-2" />
+            العودة للدروس
+          </Button>
+
+          <Card className="shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="text-2xl">{selectedLesson.title}</CardTitle>
+              <div className="flex items-center gap-3 text-sm text-slate-500 mt-2">
+                {selectedLesson.duration && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    {toWesternNumbers(selectedLesson.duration)} دقيقة
+                  </span>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="prose prose-slate max-w-none">
+              {selectedLesson.videoUrl && (
+                <div className="aspect-video bg-slate-900 rounded-lg mb-6 flex items-center justify-center">
+                  <a 
+                    href={selectedLesson.videoUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center text-white hover:text-emerald-400 transition-colors"
+                  >
+                    <Play className="w-16 h-16 mb-2" />
+                    <span>مشاهدة الفيديو</span>
+                  </a>
+                </div>
+              )}
+              <div className="whitespace-pre-wrap text-slate-700 leading-relaxed">
+                {selectedLesson.content}
+              </div>
+            </CardContent>
+            <CardFooter className="flex gap-3">
+              {!isLessonCompleted(selectedLesson.id) && (
+                <Button 
+                  onClick={() => markLessonComplete(selectedLesson.id)}
+                  className="gradient-emerald text-white flex-1"
+                >
+                  <CheckCircle className="w-4 h-4 ml-2" />
+                  إتمام الدرس
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setSelectedLesson(null)}>
+                الدرس التالي
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
@@ -1947,10 +2247,11 @@ export default function HomePage() {
         </motion.div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-6 w-full max-w-3xl mx-auto mb-6 bg-white/80 backdrop-blur">
+          <TabsList className="grid grid-cols-7 w-full max-w-4xl mx-auto mb-6 bg-white/80 backdrop-blur">
             <TabsTrigger value="services" className="flex items-center gap-1 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Briefcase className="w-4 h-4" /><span className="hidden sm:inline">الخدمات</span></TabsTrigger>
             <TabsTrigger value="products" className="flex items-center gap-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Package className="w-4 h-4" /><span className="hidden sm:inline">المنتجات</span></TabsTrigger>
             <TabsTrigger value="khalifas" className="flex items-center gap-1 data-[state=active]:bg-blue-500 data-[state=active]:text-white"><Users className="w-4 h-4" /><span className="hidden sm:inline">الخلفاء</span></TabsTrigger>
+            <TabsTrigger value="academy" className="flex items-center gap-1 data-[state=active]:bg-indigo-500 data-[state=active]:text-white"><GraduationCap className="w-4 h-4" /><span className="hidden sm:inline">الأكاديمية</span></TabsTrigger>
             <TabsTrigger value="integrity" className="flex items-center gap-1 data-[state=active]:bg-teal-500 data-[state=active]:text-white"><Shield className="w-4 h-4" /><span className="hidden sm:inline">النزاهة</span></TabsTrigger>
             <TabsTrigger value="community" className="flex items-center gap-1 data-[state=active]:bg-purple-500 data-[state=active]:text-white"><MessageCircle className="w-4 h-4" /><span className="hidden sm:inline">المجتمع</span></TabsTrigger>
             <TabsTrigger value="contact" className="flex items-center gap-1 data-[state=active]:bg-slate-600 data-[state=active]:text-white"><Phone className="w-4 h-4" /><span className="hidden sm:inline">تواصل</span></TabsTrigger>
@@ -2170,6 +2471,10 @@ export default function HomePage() {
 
           <TabsContent value="khalifas">
             <KhalifasTab user={user} toast={toast} />
+          </TabsContent>
+
+          <TabsContent value="academy">
+            <AcademyTab user={user} />
           </TabsContent>
 
           <TabsContent value="integrity">

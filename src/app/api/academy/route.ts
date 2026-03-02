@@ -52,7 +52,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ courses: coursesWithProgress })
+    return NextResponse.json({ 
+      courses: coursesWithProgress,
+      progress: userProgress 
+    })
   } catch (error) {
     console.error('Get public academy error:', error)
     return NextResponse.json({ error: 'حدث خطأ في جلب الدورات' }, { status: 500 })

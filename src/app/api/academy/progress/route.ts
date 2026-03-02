@@ -12,6 +12,19 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url)
     const lessonId = url.searchParams.get('lessonId')
+    const courseId = url.searchParams.get('courseId')
+
+    // إذا طُلب دروس دورة معينة
+    if (courseId) {
+      const lessons = await db.academyLesson.findMany({
+        where: { courseId, isPublished: true },
+        orderBy: { order: 'asc' }
+      })
+      const progress = await db.userLessonProgress.findMany({
+        where: { userId: user.id }
+      })
+      return NextResponse.json({ lessons, progress })
+    }
 
     if (!lessonId) {
       // جلب كل تقدم المستخدم
