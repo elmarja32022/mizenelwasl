@@ -445,12 +445,21 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!user?.id) {
+        setLoading(false)
+        return
+      }
       setLoading(true)
       try {
         const [nearbyRes, convRes] = await Promise.all([
           fetch('/api/khalifas/nearby'),
           fetch('/api/messages')
         ])
+        
+        if (!nearbyRes.ok || !convRes.ok) {
+          throw new Error('فشل في تحميل البيانات')
+        }
+        
         const nearbyData = await nearbyRes.json()
         const convData = await convRes.json()
         setNearbyKhalifas(nearbyData.khalifas || [])
@@ -458,12 +467,13 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
         setConversations(convData.conversations || [])
       } catch (error) {
         console.error('Error loading data:', error)
+        // لا نعرض خطأ للمستخدم - فقط نسجل الخطأ
       } finally {
         setLoading(false)
       }
     }
     loadData()
-  }, [])
+  }, [user?.id])
 
   const startConversation = async (receiverId: string) => {
     if (!messageContent.trim()) {
