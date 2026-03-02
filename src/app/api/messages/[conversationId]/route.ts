@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
-    const sessionId = request.cookies.get('session')?.value
+    const sessionId = request.cookies.get('session_user_id')?.value
     if (!sessionId) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول' }, { status: 401 })
     }

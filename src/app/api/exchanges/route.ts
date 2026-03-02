@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 // GET - جلب التبادلات
 export async function GET(request: NextRequest) {
   try {
-    const sessionId = request.cookies.get('session')?.value
+    const sessionId = request.cookies.get('session_user_id')?.value
     if (!sessionId) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول' }, { status: 401 })
     }
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 // POST - طلب تبادل جديد
 export async function POST(request: NextRequest) {
   try {
-    const sessionId = request.cookies.get('session')?.value
+    const sessionId = request.cookies.get('session_user_id')?.value
     if (!sessionId) {
       return NextResponse.json({ error: 'يجب تسجيل الدخول' }, { status: 401 })
     }
