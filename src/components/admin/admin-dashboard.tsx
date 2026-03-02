@@ -644,12 +644,24 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
 
                       {notificationForm.targetScope === 'USER' && (
                         <div>
-                          <Label>معرف الخليفة</Label>
-                          <Input
+                          <Label>اختر الخليفة</Label>
+                          <Select
                             value={notificationForm.targetValue}
-                            onChange={(e) => setNotificationForm({...notificationForm, targetValue: e.target.value})}
-                            placeholder="أدخل معرف الخليفة..."
-                          />
+                            onValueChange={(v) => setNotificationForm({...notificationForm, targetValue: v})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="اختر الخليفة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <ScrollArea className="h-48">
+                                {locations?.users?.map((u: any) => (
+                                  <SelectItem key={u.id} value={u.id}>
+                                    {u.name} - {u.city || 'غير محدد'}
+                                  </SelectItem>
+                                ))}
+                              </ScrollArea>
+                            </SelectContent>
+                          </Select>
                         </div>
                       )}
                     </CardContent>
@@ -744,7 +756,7 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
                         <Label>الاستهداف</Label>
                         <Select 
                           value={announcementForm.targetScope} 
-                          onValueChange={(v) => setAnnouncementForm({...announcementForm, targetScope: v})}
+                          onValueChange={(v) => setAnnouncementForm({...announcementForm, targetScope: v, targetValue: ''})}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -753,9 +765,91 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
                             <SelectItem value="ALL">الجميع</SelectItem>
                             <SelectItem value="COUNTRY">دولة محددة</SelectItem>
                             <SelectItem value="CITY">مدينة محددة</SelectItem>
+                            <SelectItem value="NEIGHBORHOOD">حي محدد</SelectItem>
+                            <SelectItem value="USER">خليفة محدد</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {announcementForm.targetScope === 'COUNTRY' && (
+                        <div>
+                          <Label>اختر الدولة</Label>
+                          <Select 
+                            value={announcementForm.targetValue} 
+                            onValueChange={(v) => setAnnouncementForm({...announcementForm, targetValue: v})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="اختر الدولة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {locations?.countries?.map((c: any) => (
+                                <SelectItem key={c.code} value={c.code}>{c.code} ({toWesternNumbers(c.count)} خليفة)</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {announcementForm.targetScope === 'CITY' && (
+                        <div>
+                          <Label>اختر المدينة</Label>
+                          <Select 
+                            value={announcementForm.targetValue} 
+                            onValueChange={(v) => setAnnouncementForm({...announcementForm, targetValue: v})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="اختر المدينة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {locations?.cities?.map((c: any) => (
+                                <SelectItem key={c.city} value={c.city}>{c.city} ({toWesternNumbers(c.count)} خليفة)</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {announcementForm.targetScope === 'NEIGHBORHOOD' && (
+                        <div>
+                          <Label>اختر الحي</Label>
+                          <Select 
+                            value={announcementForm.targetValue} 
+                            onValueChange={(v) => setAnnouncementForm({...announcementForm, targetValue: v})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="اختر الحي" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {locations?.neighborhoods?.map((n: any) => (
+                                <SelectItem key={n.neighborhood} value={n.neighborhood}>{n.neighborhood} - {n.city}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {announcementForm.targetScope === 'USER' && (
+                        <div>
+                          <Label>اختر الخليفة</Label>
+                          <Select 
+                            value={announcementForm.targetValue} 
+                            onValueChange={(v) => setAnnouncementForm({...announcementForm, targetValue: v})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="اختر الخليفة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <ScrollArea className="h-48">
+                                {locations?.users?.map((u: any) => (
+                                  <SelectItem key={u.id} value={u.id}>
+                                    {u.name} - {u.city || 'غير محدد'}
+                                  </SelectItem>
+                                ))}
+                              </ScrollArea>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </CardContent>
                     <CardFooter>
                       <Button onClick={createAnnouncement} className="w-full gradient-emerald text-white">

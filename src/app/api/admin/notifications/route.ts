@@ -132,10 +132,18 @@ export async function GET(request: NextRequest) {
       orderBy: { _count: { id: 'desc' } }
     })
 
+    // المستخدمين للاختيار الفردي
+    const users = await db.user.findMany({
+      where: { isSuspended: false },
+      select: { id: true, name: true, email: true, city: true, country: true },
+      orderBy: { name: 'asc' }
+    })
+
     return NextResponse.json({
       countries: countries.map(c => ({ code: c.country, count: c._count.id })),
       cities: cities.map(c => ({ city: c.city, country: c.country, count: c._count.id })),
-      neighborhoods: neighborhoods.map(n => ({ neighborhood: n.neighborhood, city: n.city, country: n.country, count: n._count.id }))
+      neighborhoods: neighborhoods.map(n => ({ neighborhood: n.neighborhood, city: n.city, country: n.country, count: n._count.id })),
+      users: users.map(u => ({ id: u.id, name: u.name, email: u.email, city: u.city, country: u.country }))
     })
   } catch (error) {
     console.error('Get locations error:', error)
