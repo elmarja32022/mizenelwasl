@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/auth'
 
 export async function GET(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ canVote: false, reason: 'لا يمكنك التصويت لنفسك' })
     }
 
-    const targetUser = await prisma.user.findUnique({
+    const targetUser = await db.user.findUnique({
       where: { id: targetId },
       select: { id: true, name: true, image: true, city: true, country: true }
     })
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ canVote: false, reason: 'المستخدم غير موجود' })
     }
 
-    const existingVote = await prisma.integrityVote.findUnique({
+    const existingVote = await db.integrityVote.findUnique({
       where: { voterId_targetId: { voterId: user.id, targetId } }
     })
     if (existingVote) {

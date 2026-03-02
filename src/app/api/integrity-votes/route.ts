@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/auth'
 
 // GET: الحصول على التصويتات
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const targetId = searchParams.get('targetId')
 
     if (type === 'given') {
-      const votes = await prisma.integrityVote.findMany({
+      const votes = await db.integrityVote.findMany({
         where: { voterId: user.id },
         include: {
           target: { select: { id: true, name: true, image: true, city: true, country: true } }
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       })
       return NextResponse.json({ votes })
     } else if (targetId) {
-      const votes = await prisma.integrityVote.findMany({
+      const votes = await db.integrityVote.findMany({
         where: { targetId, status: 'ACTIVE' },
         include: {
           voter: { select: { id: true, name: true, image: true, city: true, country: true } }
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       })
       return NextResponse.json({ votes })
     } else {
-      const votes = await prisma.integrityVote.findMany({
+      const votes = await db.integrityVote.findMany({
         where: { targetId: user.id, status: 'ACTIVE' },
         include: {
           voter: { select: { id: true, name: true, image: true, city: true, country: true } }
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' }
       })
 
-      const stats = await prisma.integrityVote.aggregate({
+      const stats = await db.integrityVote.aggregate({
         where: { targetId: user.id, status: 'ACTIVE' },
         _count: true,
         _avg: {
@@ -90,12 +90,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'لا يمكنك التصويت لنفسك' }, { status: 400 })
     }
 
-    const targetUser = await prisma.user.findUnique({ where: { id: targetId } })
+    const targetUser = await db.user.findUnique({ where: { id: targetId } })
     if (!targetUser) {
       return NextResponse.json({ error: 'المستخدم المستهدف غير موجود' }, { status: 404 })
     }
 
-    const existingVote = await prisma.integrityVote.findUnique({
+    const existingVote = await db.integrityVote.findUnique({
       where: { voterId_targetId: { voterId: user.id, targetId } }
     })
     if (existingVote) {
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     const avgScore = (honestyScore + commitmentScore + qualityScore + cooperationScore + overallScore) / 5
     const integrityImpact = Math.round((avgScore - 3) * 5)
 
-    const vote = await prisma.integrityVote.create({
+    const vote = await db.integrityVote.create({
       data: {
         voterId: user.id,
         targetId,
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    await prisma.user.update({
+    await db.user.update({
       where: { id: targetId },
       data: {
         integrityScore: { increment: integrityImpact },
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!isAnonymous) {
-      await prisma.notification.create({
+      await db.notification.create({
         data: {
           type: 'RATING',
           title: 'تصويت جديد على نزاهتك',

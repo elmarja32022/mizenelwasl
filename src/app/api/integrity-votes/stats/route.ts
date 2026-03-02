@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/auth'
 
 export async function GET(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId') || user.id
 
-    const targetUser = await prisma.user.findUnique({
+    const targetUser = await db.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 })
     }
 
-    const votes = await prisma.integrityVote.findMany({
+    const votes = await db.integrityVote.findMany({
       where: { targetId: userId, status: 'ACTIVE' },
       select: {
         honestyScore: true,

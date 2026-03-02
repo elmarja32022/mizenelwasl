@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/auth'
 
 export async function GET(request: NextRequest) {
@@ -16,12 +16,12 @@ export async function GET(request: NextRequest) {
 
     const where: any = {
       isSuspended: false,
-      totalVotes: { gte: 3 }
+      totalVotes: { gte: 1 }
     }
     if (country) where.country = country
     if (city) where.city = city
 
-    const users = await prisma.user.findMany({
+    const users = await db.user.findMany({
       where,
       select: {
         id: true,
