@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         user: {
-          select: { id: true, name: true, trustLevel: true, integrityScore: true }
+          select: { id: true, name: true, image: true, trustLevel: true, integrityScore: true }
         },
         comments: {
           include: {
-            user: { select: { id: true, name: true } }
+            user: { select: { id: true, name: true, image: true } }
           },
           orderBy: { createdAt: 'asc' }
         },

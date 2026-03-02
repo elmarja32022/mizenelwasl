@@ -891,10 +891,11 @@ interface Post {
   title: string
   content: string
   type: string
-  user: { id: string; name: string; trustLevel: string }
-  comments: { id: string; content: string; user: { id: string; name: string } }[]
+  user: { id: string; name: string; image?: string; trustLevel: string; integrityScore: number }
+  comments: { id: string; content: string; createdAt: string; user: { id: string; name: string; image?: string } }[]
   positiveVotes: number
   negativeVotes: number
+  votes?: { id: string; type: string; userId: string }[]
   createdAt: string
 }
 
@@ -946,6 +947,7 @@ export default function HomePage() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [profileForm, setProfileForm] = useState({ name: '', phone: '', country: '', city: '', neighborhood: '', image: '' })
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [commentForm, setCommentForm] = useState({ content: '' })
 
   const { toast } = useToast()
 
@@ -1050,6 +1052,29 @@ export default function HomePage() {
   }
   const handlePostVote = async (postId: string, type: 'POSITIVE' | 'NEGATIVE') => {
     try { const res = await fetch(`/api/community/${postId}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) }); const data = await res.json(); if (data.success) { fetchPosts() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
+  }
+
+  const handleAddComment = async (postId: string, content: string) => {
+    if (!content.trim()) {
+      toast({ title: 'تنبيه', description: 'اكتب تعليقاً أولاً', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch(`/api/community/${postId}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم إضافة التعليق', description: 'بارك الله فيك' })
+        fetchPosts()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', variant: 'destructive' })
+    }
   }
 
   const openProfileModal = () => {
@@ -2071,15 +2096,178 @@ export default function HomePage() {
 
           <TabsContent value="community">
             <div className="grid md:grid-cols-3 gap-6">
-              <Card className="shadow-lg border-0"><CardHeader><CardTitle className="flex items-center gap-2"><Plus className="w-5 h-5 text-purple-500" />مشاركة جديدة</CardTitle></CardHeader><CardContent>
-                <form onSubmit={handleAddPost} className="space-y-4">
-                  <div><Label>النوع</Label><Select value={postForm.type} onValueChange={(v) => setPostForm({...postForm, type: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="POST">منشور</SelectItem><SelectItem value="DISCUSSION">نقاش</SelectItem><SelectItem value="SUGGESTION">اقتراح</SelectItem><SelectItem value="SUCCESS_STORY">قصة نجاح</SelectItem></SelectContent></Select></div>
-                  <div><Label>العنوان</Label><Input value={postForm.title} onChange={(e) => setPostForm({...postForm, title: e.target.value})} required /></div>
-                  <div><Label>المحتوى</Label><Textarea value={postForm.content} onChange={(e) => setPostForm({...postForm, content: e.target.value})} rows={4} required /></div>
-                  <Button type="submit" className="w-full bg-purple-500 hover:bg-purple-600 text-white">نشر</Button>
-                </form>
-              </CardContent></Card>
-              <div className="md:col-span-2"><h3 className="text-xl font-bold mb-4">مجتمع الوصل</h3><div className="space-y-4">{posts.length === 0 ? <Card className="text-center py-8"><CardContent><Users className="w-12 h-12 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">لا توجد مشاركات</p></CardContent></Card> : posts.map(p => <Card key={p.id} className="shadow-lg"><CardContent className="p-4"><div className="flex items-center gap-2 mb-2"><Badge variant="outline">{p.type}</Badge><span className="text-sm text-gray-500">{new Date(p.createdAt).toLocaleDateString('ar-SA')}</span></div><h4 className="font-bold text-lg mb-2">{p.title}</h4><p className="text-gray-600 mb-3">{p.content}</p><div className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">{p.user.name[0]}</div><span className="text-sm">{p.user.name}</span></div><div className="flex items-center gap-2"><Button size="sm" variant="ghost" onClick={() => handlePostVote(p.id, 'POSITIVE')} className="text-emerald-500"><ThumbsUp className="w-4 h-4 ml-1" />{p.positiveVotes}</Button><Button size="sm" variant="ghost" onClick={() => handlePostVote(p.id, 'NEGATIVE')} className="text-red-500"><ThumbsDown className="w-4 h-4 ml-1" />{p.negativeVotes}</Button></div></div></CardContent></Card>)}</div></div>
+              <Card className="shadow-lg border-0">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-purple-500" />
+                    مشاركة جديدة
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleAddPost} className="space-y-4">
+                    <div>
+                      <Label>النوع</Label>
+                      <Select value={postForm.type} onValueChange={(v) => setPostForm({...postForm, type: v})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="POST">منشور</SelectItem>
+                          <SelectItem value="DISCUSSION">نقاش</SelectItem>
+                          <SelectItem value="SUGGESTION">اقتراح</SelectItem>
+                          <SelectItem value="SUCCESS_STORY">قصة نجاح</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>العنوان</Label>
+                      <Input value={postForm.title} onChange={(e) => setPostForm({...postForm, title: e.target.value})} required />
+                    </div>
+                    <div>
+                      <Label>المحتوى</Label>
+                      <Textarea value={postForm.content} onChange={(e) => setPostForm({...postForm, content: e.target.value})} rows={4} required />
+                    </div>
+                    <Button type="submit" className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold">
+                      نشر
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+              
+              <div className="md:col-span-2">
+                <h3 className="text-xl font-bold mb-4">مجتمع الوصل</h3>
+                <div className="space-y-4">
+                  {posts.length === 0 ? (
+                    <Card className="text-center py-8">
+                      <CardContent>
+                        <Users className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                        <p className="text-gray-500">لا توجد مشاركات</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    posts.map(p => (
+                      <Card key={p.id} className="shadow-lg hover:shadow-xl transition-shadow">
+                        <CardContent className="p-4">
+                          {/* Post Header */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              {p.user.image ? (
+                                <img src={p.user.image} alt={p.user.name} className="w-10 h-10 rounded-full object-cover border-2 border-purple-200" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">{p.user.name[0]}</div>
+                              )}
+                              <div>
+                                <div className="font-bold">{p.user.name}</div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">{p.type}</Badge>
+                                  <span className="text-xs text-gray-500">{formatDate(p.createdAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <Badge className={getTrustBadge(p.user.trustLevel).class + ' text-white text-xs'}>
+                              {p.user.integrityScore}%
+                            </Badge>
+                          </div>
+                          
+                          {/* Post Content */}
+                          <h4 className="font-bold text-lg mb-2 text-slate-800">{p.title}</h4>
+                          <p className="text-slate-600 mb-4 leading-relaxed">{p.content}</p>
+                          
+                          {/* Islamic Reactions */}
+                          <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gradient-to-l from-purple-50 via-white to-purple-50 rounded-xl border border-purple-100">
+                            <span className="text-sm text-slate-600 ml-2">رد فعل:</span>
+                            {[
+                              { type: 'POSITIVE', emoji: '🤲', label: 'بارك الله', color: 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700 border-emerald-300' },
+                              { type: 'POSITIVE', emoji: '💚', label: 'ما شاء الله', color: 'bg-teal-100 hover:bg-teal-200 text-teal-700 border-teal-300' },
+                              { type: 'POSITIVE', emoji: '✨', label: 'جزاك الله خيراً', color: 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-300' },
+                              { type: 'NEGATIVE', emoji: '💭', label: 'نصيحة', color: 'bg-amber-100 hover:bg-amber-200 text-amber-700 border-amber-300' }
+                            ].map((reaction, i) => (
+                              <Button
+                                key={i}
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePostVote(p.id, reaction.type as 'POSITIVE' | 'NEGATIVE')}
+                                className={`${reaction.color} border font-medium`}
+                              >
+                                <span className="ml-1">{reaction.emoji}</span>
+                                {reaction.label}
+                              </Button>
+                            ))}
+                          </div>
+                          
+                          {/* Vote Counts with Islamic Labels */}
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="flex items-center gap-1.5 text-sm text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
+                              <span>🤲</span>
+                              <span className="font-bold">{formatNumber(p.positiveVotes)}</span>
+                              <span className="text-xs">بارك الله</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-sm text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full">
+                              <span>💭</span>
+                              <span className="font-bold">{formatNumber(p.negativeVotes)}</span>
+                              <span className="text-xs">نصيحة</span>
+                            </div>
+                          </div>
+                          
+                          {/* Comments Section */}
+                          <div className="border-t pt-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <MessageCircle className="w-4 h-4 text-purple-500" />
+                              <span className="font-bold text-sm">التعليقات ({formatNumber(p.comments?.length || 0)})</span>
+                            </div>
+                            
+                            {/* Existing Comments */}
+                            {p.comments && p.comments.length > 0 && (
+                              <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                                {p.comments.map((comment) => (
+                                  <div key={comment.id} className="flex gap-2 p-3 bg-slate-50 rounded-xl">
+                                    {comment.user.image ? (
+                                      <img src={comment.user.image} alt={comment.user.name} className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-white text-sm font-bold">{comment.user.name[0]}</div>
+                                    )}
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">{comment.user.name}</span>
+                                        <span className="text-xs text-gray-400">{formatDate(comment.createdAt)}</span>
+                                      </div>
+                                      <p className="text-sm text-slate-600 mt-1">{comment.content}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Add Comment */}
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="اكتب تعليقاً..."
+                                value={commentForm.content}
+                                onChange={(e) => setCommentForm({...commentForm, content: e.target.value})}
+                                className="flex-1"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleAddComment(p.id, commentForm.content)
+                                    setCommentForm({ content: '' })
+                                  }
+                                }}
+                              />
+                              <Button 
+                                size="sm"
+                                onClick={() => {
+                                  handleAddComment(p.id, commentForm.content)
+                                  setCommentForm({ content: '' })
+                                }}
+                                className="bg-purple-500 hover:bg-purple-600 text-white"
+                              >
+                                <Send className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </TabsContent>
 
