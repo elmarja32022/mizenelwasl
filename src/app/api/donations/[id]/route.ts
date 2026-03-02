@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/auth'
 
 // PUT - تحديث حالة التبرع
@@ -13,7 +13,7 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 })
     }
 
-    const donation = await prisma.donation.findUnique({
+    const donation = await db.donation.findUnique({
       where: { id: params.id },
       include: { donor: true }
     })
@@ -46,7 +46,7 @@ export async function PUT(
       updateData.notes = notes
     }
 
-    const updatedDonation = await prisma.donation.update({
+    const updatedDonation = await db.donation.update({
       where: { id: params.id },
       data: updateData,
       include: {
@@ -84,7 +84,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 })
     }
 
-    const donation = await prisma.donation.findUnique({
+    const donation = await db.donation.findUnique({
       where: { id: params.id }
     })
 
@@ -102,7 +102,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'لا يمكن حذف تبرع تمت معالجته' }, { status: 400 })
     }
 
-    await prisma.donation.delete({
+    await db.donation.delete({
       where: { id: params.id }
     })
 

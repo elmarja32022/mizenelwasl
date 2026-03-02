@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/auth'
 
 // GET - جلب التبرعات
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       where.category = category
     }
 
-    const donations = await prisma.donation.findMany({
+    const donations = await db.donation.findMany({
       where,
       include: {
         donor: {
@@ -55,13 +55,13 @@ export async function GET(request: NextRequest) {
     })
 
     // حساب الإحصائيات
-    const stats = await prisma.donation.aggregate({
+    const stats = await db.donation.aggregate({
       _count: { id: true },
       _sum: { amount: true },
       where: { status: 'COMPLETED' }
     })
 
-    const byType = await prisma.donation.groupBy({
+    const byType = await db.donation.groupBy({
       by: ['type'],
       _count: { id: true },
       _sum: { amount: true },
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // إنشاء التبرع
-    const donation = await prisma.donation.create({
+    const donation = await db.donation.create({
       data: {
         donorId: user.id,
         type,
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     // تحديث رصيد النزاهة للمتبرع (مكافأة على التبرع)
     const integrityBonus = type === 'MONEY' ? 2 : type === 'TIME' ? 3 : type === 'SKILL' ? 4 : 1
     
-    await prisma.user.update({
+    await db.user.update({
       where: { id: user.id },
       data: {
         integrityScore: Math.min(100, user.integrityScore + integrityBonus)
