@@ -36,8 +36,8 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
   const [locations, setLocations] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterCountry, setFilterCountry] = useState('')
-  const [filterCity, setFilterCity] = useState('')
+  const [filterCountry, setFilterCountry] = useState('ALL')
+  const [filterCity, setFilterCity] = useState('ALL')
   
   // نماذج الإرسال
   const [notificationForm, setNotificationForm] = useState({
@@ -92,8 +92,8 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.append('search', searchQuery)
-      if (filterCountry) params.append('country', filterCountry)
-      if (filterCity) params.append('city', filterCity)
+      if (filterCountry && filterCountry !== 'ALL') params.append('country', filterCountry)
+      if (filterCity && filterCity !== 'ALL') params.append('city', filterCity)
       
       const res = await fetch(`/api/admin/users?${params}`)
       const data = await res.json()
@@ -437,7 +437,7 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
                         <SelectValue placeholder="الدولة" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">الكل</SelectItem>
+                        <SelectItem value="ALL">الكل</SelectItem>
                         {locations?.countries?.map((c: any) => (
                           <SelectItem key={c.code} value={c.code}>{c.code} ({toWesternNumbers(c.count)})</SelectItem>
                         ))}
