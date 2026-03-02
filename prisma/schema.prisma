@@ -25,6 +25,7 @@ model User {
   trustLevel       String   @default("موثوق")
   rating           Float    @default(0)
   totalExchanges   Int      @default(0)
+  totalVotes       Int      @default(0) // عدد التصويتات المستلمة
   covenantSigned   Boolean  @default(false) // توقيع ميثاق الوصل والعهد
   covenantSignedAt DateTime? // تاريخ توقيع الميثاق
   isAdmin          Boolean  @default(false) // صلاحيات الخليفة المختار
@@ -41,9 +42,12 @@ model User {
   exchangesAsProvider  Exchange[] @relation("ProviderExchanges")
   posts                CommunityPost[]
   comments             Comment[]
-  userVotes            UserVote[]
   postVotes            PostVote[]
   notifications        Notification[]
+  
+  // تصويت النزاهة
+  votesGiven          IntegrityVote[] @relation("VoterVotes") // التصويتات المعطاة
+  votesReceived       IntegrityVote[] @relation("TargetVotes") // التصويتات المستلمة
   
   // الرسائل المباشرة
   sentMessages        Message[]      @relation("SentMessages")
@@ -105,6 +109,7 @@ model Exchange {
   provider    User     @relation("ProviderExchanges", fields: [providerId], references: [id])
   service     Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  integrityVotes IntegrityVote[] // تصويتات النزاهة المرتبطة
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -132,13 +137,36 @@ model Comment {
   createdAt DateTime      @default(now())
 }
 
-model UserVote {
-  id         String   @id @default(cuid())
-  type       String // POSITIVE | NEGATIVE
-  targetId   String
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+// تصويت النزاهة
+model IntegrityVote {
+  id           String   @id @default(cuid())
+  voterId      String   // المصوّت
+  targetId     String   // المستهدف بالتصويت
+  exchangeId   String?  // التبادل المرتبط (اختياري)
+  
+  // تصنيفات التصويت (1-5 نجوم لكل تصنيف)
+  honestyScore     Int @default(5) // الصدق والأمانة
+  commitmentScore  Int @default(5) // الالتزام بالمواعيد
+  qualityScore     Int @default(5) // جودة العمل/الخدمة
+  cooperationScore Int @default(5) // روح التعاون
+  
+  // التقييم العام والملاحظات
+  overallScore Int     @default(5) // التقييم العام (1-5)
+  comment      String? // تعليق (اختياري)
+  isAnonymous  Boolean @default(false) // تصويت مجهول
+  
+  // حالة التصويت
+  status       String  @default("ACTIVE") // ACTIVE | DISPUTED | REMOVED
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // العلاقات
+  voter        User     @relation("VoterVotes", fields: [voterId], references: [id], onDelete: Cascade)
+  target       User     @relation("TargetVotes", fields: [targetId], references: [id], onDelete: Cascade)
+  exchange     Exchange? @relation(fields: [exchangeId], references: [id], onDelete: SetNull)
+  
+  @@unique([voterId, targetId]) // تصويت واحد لكل مستخدم لكل هدف
 }
 
 model PostVote {

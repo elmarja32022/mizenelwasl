@@ -94,6 +94,11 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
     isPublished: false
   })
 
+  // تصويتات النزاهة
+  const [votes, setVotes] = useState<any[]>([])
+  const [votesStats, setVotesStats] = useState<any>(null)
+  const [votesFilter, setVotesFilter] = useState<'all' | 'positive' | 'negative' | 'disputed'>('all')
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -107,6 +112,9 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
   useEffect(() => {
     if (activeSection === 'users') {
       fetchUsers()
+    }
+    if (activeSection === 'votes') {
+      fetchVotes()
     }
   }, [activeSection, searchQuery, filterCountry, filterCity])
 
@@ -428,6 +436,39 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
     }
   }
 
+  // جلب تصويتات النزاهة
+  const fetchVotes = async () => {
+    try {
+      const res = await fetch('/api/admin/integrity-votes')
+      const data = await res.json()
+      if (res.ok) {
+        setVotes(data.votes || [])
+        setVotesStats(data.stats)
+      }
+    } catch (error) {
+      console.error('Error fetching votes:', error)
+    }
+  }
+
+  const handleVoteAction = async (voteId: string, action: 'remove' | 'dispute') => {
+    try {
+      const res = await fetch('/api/admin/integrity-votes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voteId, action })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم التحديث', description: action === 'remove' ? 'تم إزالة التصويت' : 'تم تحديد التصويت للنزاع' })
+        fetchVotes()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
   const getTargetScopeLabel = (scope: string) => {
     const labels: Record<string, string> = {
       'ALL': 'الجميع',
@@ -493,6 +534,7 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
             {[
               { id: 'overview', icon: BarChart3, label: 'نظرة عامة' },
               { id: 'users', icon: Users, label: 'إدارة الخلفاء' },
+              { id: 'votes', icon: Star, label: 'تصويتات النزاهة' },
               { id: 'notifications', icon: Bell, label: 'إرسال إشعارات' },
               { id: 'announcements', icon: Megaphone, label: 'المنشورات الرسمية' },
               { id: 'academy', icon: GraduationCap, label: 'الأكاديمية' },
@@ -724,6 +766,160 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
                           </CardContent>
                         </Card>
                       ))}
+                    </div>
+                  </ScrollArea>
+                </motion.div>
+              )}
+
+              {/* Votes Section */}
+              {activeSection === 'votes' && (
+                <motion.div
+                  key="votes"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  {/* Stats */}
+                  {votesStats && (
+                    <div className="grid grid-cols-4 gap-4">
+                      <Card className="border-0 shadow-lg">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-3xl font-bold text-emerald-600">{toWesternNumbers(votesStats.total || 0)}</div>
+                          <div className="text-sm text-slate-500">إجمالي التصويتات</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-lg">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-3xl font-bold text-blue-600">{toWesternNumbers(votesStats.positive || 0)}</div>
+                          <div className="text-sm text-slate-500">تصويتات إيجابية</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-lg">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-3xl font-bold text-amber-600">{toWesternNumbers(votesStats.negative || 0)}</div>
+                          <div className="text-sm text-slate-500">تصويتات سلبية</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-lg">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-3xl font-bold text-red-600">{toWesternNumbers(votesStats.disputed || 0)}</div>
+                          <div className="text-sm text-slate-500">تحت النزاع</div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Filters */}
+                  <div className="flex gap-2">
+                    {[
+                      { id: 'all', label: 'الكل' },
+                      { id: 'positive', label: 'إيجابية' },
+                      { id: 'negative', label: 'سلبية' },
+                      { id: 'disputed', label: 'تحت النزاع' }
+                    ].map((filter) => (
+                      <Button
+                        key={filter.id}
+                        variant={votesFilter === filter.id ? 'default' : 'outline'}
+                        onClick={() => setVotesFilter(filter.id as any)}
+                        className={votesFilter === filter.id ? 'gradient-emerald text-white' : ''}
+                      >
+                        {filter.label}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {/* Votes List */}
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-3">
+                      {votes
+                        .filter((v: any) => {
+                          if (votesFilter === 'all') return true
+                          if (votesFilter === 'positive') return v.overallScore >= 4
+                          if (votesFilter === 'negative') return v.overallScore < 3
+                          if (votesFilter === 'disputed') return v.status === 'DISPUTED'
+                          return true
+                        })
+                        .map((vote: any) => (
+                        <Card key={vote.id} className={`border-0 shadow ${vote.status === 'DISPUTED' ? 'bg-orange-50' : vote.overallScore < 3 ? 'bg-red-50' : ''}`}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="text-center">
+                                  <div className={`text-2xl font-bold ${vote.overallScore >= 4 ? 'text-emerald-600' : vote.overallScore >= 3 ? 'text-amber-600' : 'text-red-600'}`}>
+                                    {toWesternNumbers(vote.overallScore)}/5
+                                  </div>
+                                  <div className="flex gap-0.5 mt-1">
+                                    {[1,2,3,4,5].map(s => (
+                                      <Star key={s} className={`w-3 h-3 ${s <= vote.overallScore ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="border-r pr-3 mr-3">
+                                  <div className="text-xs text-slate-500">من</div>
+                                  <div className="font-bold">{vote.voter?.name || 'مجهول'}</div>
+                                  <div className="text-xs text-slate-500">إلى</div>
+                                  <div className="font-bold">{vote.target?.name}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {vote.status === 'DISPUTED' && (
+                                  <Badge className="bg-orange-500 text-white">نزاع</Badge>
+                                )}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <Settings className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={() => handleVoteAction(vote.id, 'dispute')}>
+                                      <AlertTriangle className="w-4 h-4 ml-2" />
+                                      تحديد للنزاع
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleVoteAction(vote.id, 'remove')} className="text-red-600">
+                                      <Trash2 className="w-4 h-4 ml-2" />
+                                      إزالة التصويت
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                            {vote.comment && (
+                              <div className="mt-3 p-2 bg-slate-100 rounded text-sm text-slate-600">
+                                {vote.comment}
+                              </div>
+                            )}
+                            <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+                              <div className="p-2 bg-blue-50 rounded">
+                                <div className="font-bold text-blue-600">{toWesternNumbers(vote.honestyScore)}</div>
+                                <div className="text-slate-500">الصدق</div>
+                              </div>
+                              <div className="p-2 bg-amber-50 rounded">
+                                <div className="font-bold text-amber-600">{toWesternNumbers(vote.commitmentScore)}</div>
+                                <div className="text-slate-500">الالتزام</div>
+                              </div>
+                              <div className="p-2 bg-purple-50 rounded">
+                                <div className="font-bold text-purple-600">{toWesternNumbers(vote.qualityScore)}</div>
+                                <div className="text-slate-500">الجودة</div>
+                              </div>
+                              <div className="p-2 bg-rose-50 rounded">
+                                <div className="font-bold text-rose-600">{toWesternNumbers(vote.cooperationScore)}</div>
+                                <div className="text-slate-500">التعاون</div>
+                              </div>
+                            </div>
+                            <div className="mt-2 text-xs text-slate-400">
+                              {new Date(vote.createdAt).toLocaleDateString('ar-SA')} - {new Date(vote.createdAt).toLocaleTimeString('ar-SA')}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                      {votes.length === 0 && (
+                        <div className="text-center py-12">
+                          <Star className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                          <p className="text-slate-500">لا توجد تصويتات</p>
+                        </div>
+                      )}
                     </div>
                   </ScrollArea>
                 </motion.div>
