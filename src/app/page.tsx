@@ -715,7 +715,7 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
 
       {/* نافذة بدء محادثة */}
       <Dialog open={!!selectedKhalifa} onOpenChange={() => setSelectedKhalifa(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5 text-emerald-500" />
@@ -750,7 +750,7 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
 
       {/* نافذة المحادثة */}
       <Dialog open={activeView === 'chat' && !!currentChat} onOpenChange={() => setActiveView('list')}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white">
@@ -778,7 +778,7 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
                   >
                     <p className="text-sm">{msg.content}</p>
                     <p className="text-xs opacity-70 mt-1">
-                      {new Date(msg.createdAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                     </p>
                   </div>
                 </div>
@@ -1049,6 +1049,29 @@ export default function HomePage() {
   }
 
   const formatTime = (minutes: number) => { const hours = Math.floor(minutes / 60); const mins = minutes % 60; if (hours > 0 && mins > 0) return `${hours} ساعة و ${mins} دقيقة`; if (hours > 0) return `${hours} ساعة`; return `${mins} دقيقة` }
+  
+  // تحويل الأرقام العربية إلى أرقام عربية غربية
+  const toWesternNumbers = (num: number | string): string => {
+    const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
+    const str = String(num)
+    let result = str
+    arabicNums.forEach((arabic, western) => {
+      result = result.replace(new RegExp(arabic, 'g'), String(western))
+    })
+    return result
+  }
+  
+  // تنسيق الأرقام بالأرقام الغربية
+  const formatNumber = (num: number): string => toWesternNumbers(num)
+  const formatDate = (date: string | Date): string => {
+    const d = new Date(date)
+    return toWesternNumbers(d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }))
+  }
+  const formatTime24 = (date: string | Date): string => {
+    const d = new Date(date)
+    return toWesternNumbers(d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }))
+  }
+  
   const getTrustBadge = (level: string) => { const badges: Record<string, { class: string; icon: string }> = { 'خليفة مميز': { class: 'trust-excellent', icon: '⭐' }, 'خليفة صادق': { class: 'trust-very-good', icon: '✨' }, 'خليفة موثوق': { class: 'trust-good', icon: '✓' }, 'تحت المراقبة': { class: 'trust-warning', icon: '⚠' }, 'مجمد': { class: 'trust-frozen', icon: '❄' }, 'مميز': { class: 'trust-excellent', icon: '⭐' }, 'موثوق جداً': { class: 'trust-very-good', icon: '✨' }, 'موثوق': { class: 'trust-good', icon: '✓' }, 'محذر': { class: 'trust-warning', icon: '⚠' } }; return badges[level] || badges['خليفة موثوق'] }
   const getServiceCategories = () => { const serviceCats = categories.filter(c => c.type === 'SERVICE'); return serviceCats.filter((cat, index, self) => index === self.findIndex(c => c.name === cat.name)) }
   const getProductCategories = () => { const productCats = categories.filter(c => c.type === 'PRODUCT'); return productCats.filter((cat, index, self) => index === self.findIndex(c => c.name === cat.name)) }
@@ -1602,7 +1625,7 @@ export default function HomePage() {
 
         {/* Covenant Modal */}
         <Dialog open={showCovenant} onOpenChange={setShowCovenant}>
-          <DialogContent className="max-w-3xl max-h-[90vh] p-0">
+          <DialogContent className="max-w-3xl max-h-[90vh] p-0" dir="rtl">
             <DialogHeader className="sr-only">
               <DialogTitle>ميثاق الوصل والعهد</DialogTitle>
               <DialogDescription>دستور الانضمام لمذهب ميزان الوصل</DialogDescription>
@@ -1615,7 +1638,7 @@ export default function HomePage() {
 
         {/* Auth Modal */}
         <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md" dir="rtl">
             <DialogHeader>
               <DialogTitle className="text-2xl text-center">{authMode === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب خليفة'}</DialogTitle>
               <DialogDescription className="text-center">{authMode === 'login' ? 'أدخل بياناتك للوصول إلى حسابك' : 'انضم لمذهب ميزان الوصل • دعوة عالمية للبشرية'}</DialogDescription>
@@ -1718,9 +1741,9 @@ export default function HomePage() {
                   <p className="opacity-90">{user.city && user.country ? `${user.city}، ${locations?.countries.find(c => c.code === user.country)?.name}` : 'مرحباً بك في مذهب ميزان الوصل • لا حدود بيننا'}</p>
                 </div>
                 <div className="flex flex-wrap gap-4">
-                  <div className="text-center bg-white/20 backdrop-blur rounded-xl px-6 py-3"><div className="text-3xl font-bold">{Math.floor(user.timeBalance / 60)}</div><div className="text-sm opacity-90">ساعة متبقية</div></div>
-                  <div className="text-center bg-white/20 backdrop-blur rounded-xl px-6 py-3"><div className="text-3xl font-bold">{user.totalExchanges}</div><div className="text-sm opacity-90">تبادل ناجح</div></div>
-                  <div className="text-center bg-white/20 backdrop-blur rounded-xl px-6 py-3"><div className="text-3xl font-bold">{user.integrityScore}%</div><div className="text-sm opacity-90">نزاهة</div></div>
+                  <div className="text-center bg-white/20 backdrop-blur rounded-xl px-6 py-3"><div className="text-3xl font-bold">{formatNumber(Math.floor(user.timeBalance / 60))}</div><div className="text-sm opacity-90">ساعة متبقية</div></div>
+                  <div className="text-center bg-white/20 backdrop-blur rounded-xl px-6 py-3"><div className="text-3xl font-bold">{formatNumber(user.totalExchanges)}</div><div className="text-sm opacity-90">تبادل ناجح</div></div>
+                  <div className="text-center bg-white/20 backdrop-blur rounded-xl px-6 py-3"><div className="text-3xl font-bold">{formatNumber(user.integrityScore)}%</div><div className="text-sm opacity-90">نزاهة</div></div>
                 </div>
               </div>
             </div>
@@ -1984,7 +2007,7 @@ export default function HomePage() {
 
       {/* Covenant Modal for logged in users */}
       <Dialog open={showCovenant} onOpenChange={setShowCovenant}>
-        <DialogContent className="max-w-3xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-3xl max-h-[90vh] p-0" dir="rtl">
           <DialogHeader className="sr-only">
             <DialogTitle>ميثاق الوصل والعهد</DialogTitle>
             <DialogDescription>دستور الانضمام لمذهب ميزان الوصل</DialogDescription>
@@ -1997,7 +2020,7 @@ export default function HomePage() {
 
       {/* Service Details Modal */}
       <Dialog open={!!selectedService} onOpenChange={() => setSelectedService(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0" dir="rtl">
           <DialogHeader className="sr-only">
             <DialogTitle>{selectedService?.title}</DialogTitle>
             <DialogDescription>تفاصيل الخدمة</DialogDescription>
@@ -2005,7 +2028,7 @@ export default function HomePage() {
           {selectedService && (() => {
             const serviceImages = selectedService.images ? JSON.parse(selectedService.images) : []
             return (
-              <div className="p-6" dir="rtl">
+              <div className="p-6">
                 {/* Images Gallery */}
                 {serviceImages.length > 0 && (
                   <div className="mb-4">
@@ -2022,7 +2045,7 @@ export default function HomePage() {
                           <img 
                             key={i} 
                             src={img} 
-                            alt={`${selectedService.title} ${i+1}`} 
+                            alt={`${selectedService.title} ${formatNumber(i+1)}`} 
                             className="w-20 h-20 object-cover rounded-lg border-2 border-transparent hover:border-emerald-500 cursor-pointer shrink-0"
                           />
                         ))}
@@ -2063,7 +2086,7 @@ export default function HomePage() {
                           <Badge className={getTrustBadge(selectedService.user.trustLevel).class + ' text-white text-xs'}>
                             {selectedService.user.trustLevel}
                           </Badge>
-                          <span className="text-sm text-slate-500">{selectedService.user.integrityScore}% نزاهة</span>
+                          <span className="text-sm text-slate-500">{formatNumber(selectedService.user.integrityScore)}% نزاهة</span>
                         </div>
                         {selectedService.user.city && (
                           <div className="flex items-center gap-1 text-sm text-slate-500 mt-1">
@@ -2102,7 +2125,7 @@ export default function HomePage() {
 
       {/* Product Details Modal */}
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0" dir="rtl">
           <DialogHeader className="sr-only">
             <DialogTitle>{selectedProduct?.name}</DialogTitle>
             <DialogDescription>تفاصيل المنتج</DialogDescription>
@@ -2110,7 +2133,7 @@ export default function HomePage() {
           {selectedProduct && (() => {
             const productImages = selectedProduct.images ? JSON.parse(selectedProduct.images) : []
             return (
-              <div className="p-6" dir="rtl">
+              <div className="p-6">
                 {/* Images Gallery */}
                 {productImages.length > 0 && (
                   <div className="mb-4">
@@ -2127,7 +2150,7 @@ export default function HomePage() {
                           <img 
                             key={i} 
                             src={img} 
-                            alt={`${selectedProduct.name} ${i+1}`} 
+                            alt={`${selectedProduct.name} ${formatNumber(i+1)}`} 
                             className="w-20 h-20 object-cover rounded-lg border-2 border-transparent hover:border-amber-500 cursor-pointer shrink-0"
                           />
                         ))}
@@ -2152,7 +2175,7 @@ export default function HomePage() {
                   <div className="flex items-center gap-4 text-slate-500">
                     <span className="flex items-center gap-1">
                       <Package className="w-4 h-4" />
-                      {selectedProduct.quantity} {selectedProduct.unit}
+                      {formatNumber(selectedProduct.quantity)} {selectedProduct.unit}
                     </span>
                   </div>
                   
