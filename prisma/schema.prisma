@@ -57,6 +57,11 @@ model User {
   
   // التبرعات
   donations           Donation[]     // تبرعات المستخدم
+  
+  // المشاريع
+  projects            Project[]      // مشاريع المستخدم
+  projectSupports     ProjectSupport[] // دعم المشاريع
+  projectComments     ProjectComment[] // تعليقات المشاريع
 }
 
 model Service {
@@ -349,4 +354,96 @@ model Donation {
   @@index([type])
   @@index([status])
   @@index([category])
+}
+
+// مشاريع الابتكار ودعم المجتمع
+model Project {
+  id              String   @id @default(cuid())
+  creatorId       String   // صاحب المشروع
+  
+  // معلومات المشروع
+  title           String   // عنوان المشروع
+  description     String   // وصف المشروع
+  category        String   // فئة المشروع (تقنية، تعليمية، اجتماعية، بيئية، صحية، أخرى)
+  stage           String   @default("IDEA") // IDEA | PLANNING | DEVELOPMENT | TESTING | LAUNCHED
+  
+  // الاحتياجات
+  needsTime       Boolean  @default(false) // يحتاج دعم وقت
+  needsMoney      Boolean  @default(false) // يحتاج دعم مالي
+  needsSkills     Boolean  @default(false) // يحتاج مهارات
+  needsMaterials  Boolean  @default(false) // يحتاج مواد
+  
+  // الأهداف
+  targetAmount    Float    @default(0) // المبلغ المستهدف
+  targetTime      Int      @default(0) // الوقت المستهدف (ساعات)
+  targetSupporters Int     @default(0) // عدد الداعمين المستهدف
+  
+  // التقدم
+  currentAmount   Float    @default(0) // المبلغ الحالي
+  currentTime     Int      @default(0) // الوقت الحالي
+  currentSupporters Int    @default(0) // عدد الداعمين الحالي
+  
+  // الحالة
+  status          String   @default("DRAFT") // DRAFT | PENDING | ACTIVE | FUNDED | COMPLETED | CANCELLED
+  isPublic        Boolean  @default(true) // مشروع عام
+  allowComments   Boolean  @default(true) // السماح بالتعليقات
+  
+  // صور وفيديو
+  images          String?  // روابط الصور (JSON)
+  videoUrl        String?  // رابط فيديو عرض المشروع
+  
+  // التواريخ
+  startDate       DateTime? // تاريخ البدء
+  endDate         DateTime? // تاريخ الانتهاء المتوقع
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // العلاقات
+  creator         User           @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  supports        ProjectSupport[]
+  comments        ProjectComment[]
+  
+  @@index([category])
+  @@index([status])
+  @@index([stage])
+}
+
+// دعم المشاريع
+model ProjectSupport {
+  id          String   @id @default(cuid())
+  projectId   String
+  supporterId String
+  
+  // نوع الدعم
+  type        String   // TIME | MONEY | SKILL | MATERIALS
+  
+  // تفاصيل الدعم
+  amount      Float    @default(0) // المبلغ (للدعم المالي)
+  hours       Int      @default(0) // الساعات (للدعم بالوقت)
+  description String?  // وصف الدعم (للمهارات والمواد)
+  
+  // الحالة
+  status      String   @default("PENDING") // PENDING | CONFIRMED | COMPLETED
+  
+  createdAt   DateTime @default(now())
+  
+  // العلاقات
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supporter   User     @relation(fields: [supporterId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, supporterId, type]) // دعم واحد من كل نوع لكل مشروع
+}
+
+// تعليقات المشاريع
+model ProjectComment {
+  id          String   @id @default(cuid())
+  projectId   String
+  userId      String
+  content     String
+  
+  createdAt   DateTime @default(now())
+  
+  // العلاقات
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

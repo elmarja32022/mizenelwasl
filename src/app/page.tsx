@@ -2606,6 +2606,845 @@ const DonationTab = ({ user, toast }: { user: any; toast: any }) => {
   )
 }
 
+// مكون تبويب المشاريع والابتكار
+const ProjectsTab = ({ user, toast }: { user: any; toast: any }) => {
+  const [activeSection, setActiveSection] = useState<'overview' | 'create' | 'my' | 'all'>('overview')
+  const [projects, setProjects] = useState<any[]>([])
+  const [myProjects, setMyProjects] = useState<any[]>([])
+  const [selectedProject, setSelectedProject] = useState<any>(null)
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [filterCategory, setFilterCategory] = useState('ALL')
+  const [filterStage, setFilterStage] = useState('ALL')
+  
+  // نموذج المشروع
+  const [projectForm, setProjectForm] = useState({
+    title: '',
+    description: '',
+    category: 'تقنية',
+    stage: 'IDEA',
+    needsTime: false,
+    needsMoney: false,
+    needsSkills: false,
+    needsMaterials: false,
+    targetAmount: 0,
+    targetTime: 0,
+    targetSupporters: 0,
+    isPublic: true,
+    allowComments: true,
+    videoUrl: ''
+  })
+  
+  // نموذج الدعم
+  const [supportForm, setSupportForm] = useState({
+    type: 'TIME',
+    amount: 0,
+    hours: 0,
+    description: ''
+  })
+
+  useEffect(() => {
+    fetchProjects()
+  }, [user?.id])
+
+  const fetchProjects = async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    try {
+      const [allRes, myRes] = await Promise.all([
+        fetch('/api/projects'),
+        fetch('/api/projects?my=true')
+      ])
+      
+      if (allRes.ok) {
+        const allData = await allRes.json()
+        setProjects(allData.projects || [])
+        setStats(allData.stats)
+      }
+      
+      if (myRes.ok) {
+        const myData = await myRes.json()
+        setMyProjects(myData.projects || [])
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitProject = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!projectForm.title.trim() || !projectForm.description.trim()) {
+      toast({ title: 'تنبيه', description: 'يرجى إدخال العنوان والوصف', variant: 'destructive' })
+      return
+    }
+
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projectForm)
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم إنشاء المشروع', description: 'بارك الله فيك! تم تقديم مشروعك للمراجعة' })
+        setProjectForm({
+          title: '',
+          description: '',
+          category: 'تقنية',
+          stage: 'IDEA',
+          needsTime: false,
+          needsMoney: false,
+          needsSkills: false,
+          needsMaterials: false,
+          targetAmount: 0,
+          targetTime: 0,
+          targetSupporters: 0,
+          isPublic: true,
+          allowComments: true,
+          videoUrl: ''
+        })
+        fetchProjects()
+        setActiveSection('my')
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ أثناء إنشاء المشروع', variant: 'destructive' })
+    }
+  }
+
+  const supportProject = async (projectId: string) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/support`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(supportForm)
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ 
+          title: 'تم تقديم الدعم', 
+          description: `بارك الله فيك! حصلت على +${data.integrityBonus}% في رصيد نزاهتك` 
+        })
+        setSupportForm({ type: 'TIME', amount: 0, hours: 0, description: '' })
+        fetchProjects()
+        setSelectedProject(null)
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const toWesternNumbers = (num: number | string): string => {
+    const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
+    let result = String(num)
+    arabicNums.forEach((arabic, western) => {
+      result = result.replace(new RegExp(arabic, 'g'), String(western))
+    })
+    return result
+  }
+
+  const getCategoryInfo = (category: string) => {
+    const categories: Record<string, { icon: any; color: string; bg: string }> = {
+      'تقنية': { icon: Zap, color: 'text-blue-600', bg: 'bg-blue-100' },
+      'تعليمية': { icon: GraduationCap, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+      'اجتماعية': { icon: Users, color: 'text-purple-600', bg: 'bg-purple-100' },
+      'بيئية': { icon: Leaf, color: 'text-green-600', bg: 'bg-green-100' },
+      'صحية': { icon: Heart, color: 'text-rose-600', bg: 'bg-rose-100' },
+      'أخرى': { icon: Sparkles, color: 'text-amber-600', bg: 'bg-amber-100' }
+    }
+    return categories[category] || categories['أخرى']
+  }
+
+  const getStageInfo = (stage: string) => {
+    const stages: Record<string, { label: string; color: string }> = {
+      'IDEA': { label: 'فكرة', color: 'bg-slate-100 text-slate-700' },
+      'PLANNING': { label: 'تخطيط', color: 'bg-blue-100 text-blue-700' },
+      'DEVELOPMENT': { label: 'تطوير', color: 'bg-amber-100 text-amber-700' },
+      'TESTING': { label: 'تجربة', color: 'bg-purple-100 text-purple-700' },
+      'LAUNCHED': { label: 'منطلق', color: 'bg-emerald-100 text-emerald-700' }
+    }
+    return stages[stage] || stages['IDEA']
+  }
+
+  const getStatusInfo = (status: string) => {
+    const statuses: Record<string, { label: string; color: string }> = {
+      'DRAFT': { label: 'مسودة', color: 'bg-slate-100 text-slate-600' },
+      'PENDING': { label: 'قيد المراجعة', color: 'bg-amber-100 text-amber-600' },
+      'ACTIVE': { label: 'نشط', color: 'bg-blue-100 text-blue-600' },
+      'FUNDED': { label: 'ممول', color: 'bg-emerald-100 text-emerald-600' },
+      'COMPLETED': { label: 'مكتمل', color: 'bg-green-100 text-green-600' },
+      'CANCELLED': { label: 'ملغي', color: 'bg-red-100 text-red-600' }
+    }
+    return statuses[status] || statuses['DRAFT']
+  }
+
+  const filteredProjects = projects.filter(p => {
+    if (filterCategory !== 'ALL' && p.category !== filterCategory) return false
+    if (filterStage !== 'ALL' && p.stage !== filterStage) return false
+    return true
+  })
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <Zap className="w-16 h-16 mx-auto text-blue-500 animate-pulse mb-4" />
+        <p className="text-slate-500">جاري تحميل المشاريع...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6" dir="rtl">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 mx-auto flex items-center justify-center shadow-xl mb-4">
+          <Zap className="w-10 h-10 text-white" />
+        </div>
+        <h2 className="text-3xl font-bold text-slate-800">دعم الابتكار والمشاريع</h2>
+        <p className="text-slate-500 mt-2">ادعم أفكار المجتمع وكن جزءاً من النجاح</p>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
+        {[
+          { id: 'overview', label: 'نظرة عامة', icon: Target },
+          { id: 'create', label: 'مشروع جديد', icon: Plus },
+          { id: 'my', label: 'مشاريعي', icon: Briefcase },
+          { id: 'all', label: 'جميع المشاريع', icon: Globe }
+        ].map((item) => (
+          <Button
+            key={item.id}
+            variant={activeSection === item.id ? 'default' : 'outline'}
+            onClick={() => setActiveSection(item.id as any)}
+            className={activeSection === item.id ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white' : ''}
+          >
+            <item.icon className="w-4 h-4 ml-2" />
+            {item.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Overview Section */}
+      {activeSection === 'overview' && (
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Stats */}
+          <Card className="shadow-lg border-0">
+            <CardHeader className="bg-gradient-to-l from-blue-500 to-indigo-600 text-white rounded-t-lg">
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                إحصائيات المشاريع
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-xl">
+                  <div className="text-3xl font-bold text-blue-600">{toWesternNumbers(stats?.total || 0)}</div>
+                  <div className="text-sm text-slate-600">مشروع نشط</div>
+                </div>
+                <div className="text-center p-4 bg-emerald-50 rounded-xl">
+                  <div className="text-3xl font-bold text-emerald-600">{toWesternNumbers(myProjects.length)}</div>
+                  <div className="text-sm text-slate-600">مشاريعك</div>
+                </div>
+              </div>
+              
+              {/* By Category */}
+              {stats?.byCategory && stats.byCategory.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <h4 className="font-bold text-slate-700">المشاريع حسب الفئة</h4>
+                  {stats.byCategory.map((c: any, i: number) => {
+                    const catInfo = getCategoryInfo(c.category)
+                    return (
+                      <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-lg ${catInfo.bg} flex items-center justify-center`}>
+                            <catInfo.icon className={`w-4 h-4 ${catInfo.color}`} />
+                          </div>
+                          <span className="font-medium">{c.category}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-bold">{toWesternNumbers(c.count)}</span>
+                          <span className="text-slate-500 mr-1">مشروع</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Info Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                كيف يدعم المجتمع؟
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-gradient-to-l from-blue-50 to-indigo-50 rounded-xl border-r-4 border-blue-500">
+                <p className="text-slate-700 leading-relaxed">
+                  في مذهب ميزان الوصل، ندعم <span className="font-bold text-blue-600">الأفكار الابتكارية</span> 
+                  التي تخدم المجتمع وتحقق التكافل بين الخلفاء.
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                {[
+                  { icon: Clock, text: 'دعم بالوقت والخبرة', color: 'text-blue-500' },
+                  { icon: Gem, text: 'دعم مالي للتمويل', color: 'text-emerald-500' },
+                  { icon: Sparkles, text: 'دعم بالمهارات', color: 'text-purple-500' },
+                  { icon: Package, text: 'دعم بالمواد والأدوات', color: 'text-amber-500' }
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <item.icon className={`w-5 h-5 ${item.color}`} />
+                    <span className="text-slate-700">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Button 
+                onClick={() => setActiveSection('create')} 
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 text-lg"
+              >
+                <Plus className="w-5 h-5 ml-2" />
+                اقترح مشروعك الآن
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Recent Projects */}
+          <Card className="md:col-span-2 shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-500" />
+                أحدث المشاريع
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {projects.length === 0 ? (
+                <div className="text-center py-8">
+                  <Briefcase className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+                  <p className="text-slate-500">لا توجد مشاريع بعد</p>
+                  <Button onClick={() => setActiveSection('create')} className="mt-4 bg-blue-500 text-white">
+                    كن أول من يقدم مشروعاً
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-3 gap-4">
+                  {projects.slice(0, 6).map((project: any) => {
+                    const catInfo = getCategoryInfo(project.category)
+                    const statusInfo = getStatusInfo(project.status)
+                    const CatIcon = catInfo.icon
+                    return (
+                      <Card key={project.id} className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => setSelectedProject(project)}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className={`w-10 h-10 rounded-lg ${catInfo.bg} flex items-center justify-center`}>
+                              <CatIcon className={`w-5 h-5 ${catInfo.color}`} />
+                            </div>
+                            <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
+                          </div>
+                          <h4 className="font-bold text-slate-800 mb-1">{project.title}</h4>
+                          <p className="text-sm text-slate-500 line-clamp-2">{project.description}</p>
+                          
+                          {/* Progress */}
+                          {(project.needsMoney || project.needsTime) && (
+                            <div className="mt-3 space-y-2">
+                              {project.needsMoney && project.targetAmount > 0 && (
+                                <div>
+                                  <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>التمويل</span>
+                                    <span>{toWesternNumbers(Math.round(project.currentAmount / project.targetAmount * 100))}%</span>
+                                  </div>
+                                  <Progress value={(project.currentAmount / project.targetAmount) * 100} className="h-1.5" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between mt-3 text-xs text-slate-400">
+                            <span>{project.creator?.name}</span>
+                            <span>{project._count?.supports || 0} داعم</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Create Project Section */}
+      {activeSection === 'create' && (
+        <Card className="shadow-lg border-0 max-w-2xl mx-auto">
+          <CardHeader className="bg-gradient-to-l from-blue-500 to-indigo-600 text-white rounded-t-lg">
+            <CardTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              مشروع جديد
+            </CardTitle>
+            <CardDescription className="text-blue-100">
+              اعرض فكرتك واجمع دعم المجتمع
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <form onSubmit={submitProject} className="space-y-6">
+              {/* Title */}
+              <div>
+                <Label>عنوان المشروع *</Label>
+                <Input
+                  value={projectForm.title}
+                  onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
+                  placeholder="مثال: تطبيق لمساعدة ذوي الاحتياجات الخاصة"
+                  required
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label>وصف المشروع *</Label>
+                <Textarea
+                  value={projectForm.description}
+                  onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                  placeholder="اشرح فكرتك بالتفصيل..."
+                  rows={4}
+                  required
+                />
+              </div>
+
+              {/* Category and Stage */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>الفئة</Label>
+                  <Select 
+                    value={projectForm.category} 
+                    onValueChange={(v) => setProjectForm({ ...projectForm, category: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="تقنية">تقنية</SelectItem>
+                      <SelectItem value="تعليمية">تعليمية</SelectItem>
+                      <SelectItem value="اجتماعية">اجتماعية</SelectItem>
+                      <SelectItem value="بيئية">بيئية</SelectItem>
+                      <SelectItem value="صحية">صحية</SelectItem>
+                      <SelectItem value="أخرى">أخرى</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>مرحلة المشروع</Label>
+                  <Select 
+                    value={projectForm.stage} 
+                    onValueChange={(v) => setProjectForm({ ...projectForm, stage: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="IDEA">فكرة</SelectItem>
+                      <SelectItem value="PLANNING">تخطيط</SelectItem>
+                      <SelectItem value="DEVELOPMENT">تطوير</SelectItem>
+                      <SelectItem value="TESTING">تجربة</SelectItem>
+                      <SelectItem value="LAUNCHED">منطلق</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Needs */}
+              <div>
+                <Label className="text-lg font-bold mb-3 block">احتياجات المشروع</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: 'needsTime', icon: Clock, label: 'وقت', desc: 'ساعات عمل' },
+                    { key: 'needsMoney', icon: Gem, label: 'تمويل', desc: 'دعم مالي' },
+                    { key: 'needsSkills', icon: Sparkles, label: 'مهارات', desc: 'خبرات متخصصة' },
+                    { key: 'needsMaterials', icon: Package, label: 'مواد', desc: 'أدوات ومعدات' }
+                  ].map((need) => (
+                    <div
+                      key={need.key}
+                      onClick={() => setProjectForm({ ...projectForm, [need.key]: !projectForm[need.key as keyof typeof projectForm] })}
+                      className={`cursor-pointer rounded-xl p-4 text-center border-2 transition-all ${
+                        projectForm[need.key as keyof typeof projectForm] 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-slate-200 hover:border-blue-300'
+                      }`}
+                    >
+                      <need.icon className={`w-8 h-8 mx-auto mb-2 ${projectForm[need.key as keyof typeof projectForm] ? 'text-blue-500' : 'text-slate-400'}`} />
+                      <div className="font-bold">{need.label}</div>
+                      <div className="text-xs text-slate-500">{need.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Targets */}
+              {projectForm.needsMoney && (
+                <div>
+                  <Label>المبلغ المستهدف (ريال)</Label>
+                  <Input
+                    type="number"
+                    value={projectForm.targetAmount}
+                    onChange={(e) => setProjectForm({ ...projectForm, targetAmount: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
+              )}
+
+              {projectForm.needsTime && (
+                <div>
+                  <Label>الساعات المستهدفة</Label>
+                  <Input
+                    type="number"
+                    value={projectForm.targetTime}
+                    onChange={(e) => setProjectForm({ ...projectForm, targetTime: parseInt(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
+              )}
+
+              {/* Video URL */}
+              <div>
+                <Label>رابط فيديو عرض المشروع (اختياري)</Label>
+                <Input
+                  value={projectForm.videoUrl}
+                  onChange={(e) => setProjectForm({ ...projectForm, videoUrl: e.target.value })}
+                  placeholder="YouTube, Vimeo..."
+                />
+              </div>
+
+              {/* Options */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="isPublic"
+                    checked={projectForm.isPublic}
+                    onChange={(e) => setProjectForm({ ...projectForm, isPublic: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="isPublic" className="cursor-pointer">مشروع عام (مرئي للجميع)</Label>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="allowComments"
+                    checked={projectForm.allowComments}
+                    onChange={(e) => setProjectForm({ ...projectForm, allowComments: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="allowComments" className="cursor-pointer">السماح بالتعليقات</Label>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <Button type="submit" className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 text-lg">
+                <Send className="w-5 h-5 ml-2" />
+                تقديم المشروع
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* My Projects Section */}
+      {activeSection === 'my' && (
+        <div className="space-y-4">
+          <h3 className="text-xl font-bold">مشاريعي ({toWesternNumbers(myProjects.length)})</h3>
+          {myProjects.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Briefcase className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                <p className="text-slate-500">لم تقم بإنشاء أي مشروع بعد</p>
+                <Button 
+                  onClick={() => setActiveSection('create')} 
+                  className="mt-4 bg-blue-500 text-white"
+                >
+                  ابدأ مشروعك الآن
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {myProjects.map((project: any) => {
+                const catInfo = getCategoryInfo(project.category)
+                const statusInfo = getStatusInfo(project.status)
+                const stageInfo = getStageInfo(project.stage)
+                const CatIcon = catInfo.icon
+                return (
+                  <Card key={project.id} className="shadow border-0">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-12 h-12 rounded-xl ${catInfo.bg} flex items-center justify-center shrink-0`}>
+                          <CatIcon className={`w-6 h-6 ${catInfo.color}`} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-lg">{project.title}</h4>
+                            <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
+                            <Badge className={stageInfo.color}>{stageInfo.label}</Badge>
+                          </div>
+                          <p className="text-sm text-slate-600 mb-2">{project.description}</p>
+                          
+                          {/* Progress bars */}
+                          {(project.needsMoney || project.needsTime) && (
+                            <div className="flex flex-wrap gap-4 mt-2">
+                              {project.needsMoney && project.targetAmount > 0 && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Gem className="w-4 h-4 text-emerald-500" />
+                                  <span>{toWesternNumbers(project.currentAmount)} / {toWesternNumbers(project.targetAmount)} ريال</span>
+                                </div>
+                              )}
+                              {project.needsTime && project.targetTime > 0 && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Clock className="w-4 h-4 text-blue-500" />
+                                  <span>{toWesternNumbers(project.currentTime)} / {toWesternNumbers(project.targetTime)} ساعة</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 text-sm">
+                                <Users className="w-4 h-4 text-purple-500" />
+                                <span>{toWesternNumbers(project.currentSupporters)} داعم</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* All Projects Section */}
+      {activeSection === 'all' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h3 className="text-xl font-bold">جميع المشاريع</h3>
+            <div className="flex gap-2">
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="الفئة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">كل الفئات</SelectItem>
+                  <SelectItem value="تقنية">تقنية</SelectItem>
+                  <SelectItem value="تعليمية">تعليمية</SelectItem>
+                  <SelectItem value="اجتماعية">اجتماعية</SelectItem>
+                  <SelectItem value="بيئية">بيئية</SelectItem>
+                  <SelectItem value="صحية">صحية</SelectItem>
+                  <SelectItem value="أخرى">أخرى</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterStage} onValueChange={setFilterStage}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="المرحلة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">كل المراحل</SelectItem>
+                  <SelectItem value="IDEA">فكرة</SelectItem>
+                  <SelectItem value="PLANNING">تخطيط</SelectItem>
+                  <SelectItem value="DEVELOPMENT">تطوير</SelectItem>
+                  <SelectItem value="TESTING">تجربة</SelectItem>
+                  <SelectItem value="LAUNCHED">منطلق</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          {filteredProjects.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Briefcase className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                <p className="text-slate-500">لا توجد مشاريع</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {filteredProjects.map((project: any) => {
+                const catInfo = getCategoryInfo(project.category)
+                const statusInfo = getStatusInfo(project.status)
+                const stageInfo = getStageInfo(project.stage)
+                const CatIcon = catInfo.icon
+                return (
+                  <Card key={project.id} className="shadow border-0 hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-12 h-12 rounded-xl ${catInfo.bg} flex items-center justify-center shrink-0`}>
+                          <CatIcon className={`w-6 h-6 ${catInfo.color}`} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold">{project.title}</h4>
+                            <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
+                          </div>
+                          <p className="text-sm text-slate-600 mb-2 line-clamp-2">{project.description}</p>
+                          
+                          {/* Needs indicators */}
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {project.needsTime && (
+                              <Badge variant="outline" className="text-xs"><Clock className="w-3 h-3 ml-1" />وقت</Badge>
+                            )}
+                            {project.needsMoney && (
+                              <Badge variant="outline" className="text-xs"><Gem className="w-3 h-3 ml-1" />تمويل</Badge>
+                            )}
+                            {project.needsSkills && (
+                              <Badge variant="outline" className="text-xs"><Sparkles className="w-3 h-3 ml-1" />مهارات</Badge>
+                            )}
+                            {project.needsMaterials && (
+                              <Badge variant="outline" className="text-xs"><Package className="w-3 h-3 ml-1" />مواد</Badge>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <span>{project.creator?.name}</span>
+                              <span>•</span>
+                              <span>{toWesternNumbers(project._count?.supports || 0)} داعم</span>
+                            </div>
+                            <Button size="sm" onClick={() => setSelectedProject(project)} className="bg-blue-500 text-white">
+                              ادعم
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Support Project Dialog */}
+      <Dialog open={!!selectedProject} onOpenChange={() => setSelectedProject(null)}>
+        <DialogContent className="sm:max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className={`w-10 h-10 rounded-lg ${getCategoryInfo(selectedProject?.category).bg} flex items-center justify-center`}>
+                {(() => {
+                  const CatIcon = getCategoryInfo(selectedProject?.category).icon
+                  return <CatIcon className={`w-5 h-5 ${getCategoryInfo(selectedProject?.category).color}`} />
+                })()}
+              </div>
+              {selectedProject?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProject?.category} • {getStageInfo(selectedProject?.stage).label}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-slate-600">{selectedProject?.description}</p>
+            
+            {/* Progress */}
+            {selectedProject?.needsMoney && selectedProject?.targetAmount > 0 && (
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="flex justify-between text-sm mb-2">
+                  <span>التقدم في التمويل</span>
+                  <span className="font-bold">
+                    {toWesternNumbers(Math.round((selectedProject?.currentAmount / selectedProject?.targetAmount) * 100))}%
+                  </span>
+                </div>
+                <Progress value={(selectedProject?.currentAmount / selectedProject?.targetAmount) * 100} />
+                <div className="text-xs text-slate-500 mt-1">
+                  {toWesternNumbers(selectedProject?.currentAmount)} / {toWesternNumbers(selectedProject?.targetAmount)} ريال
+                </div>
+              </div>
+            )}
+            
+            {/* Support Form */}
+            <div className="border-t pt-4">
+              <h4 className="font-bold mb-3">قدم دعمك</h4>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label>نوع الدعم</Label>
+                  <Select value={supportForm.type} onValueChange={(v) => setSupportForm({ ...supportForm, type: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedProject?.needsTime && <SelectItem value="TIME">وقت (ساعات)</SelectItem>}
+                      {selectedProject?.needsMoney && <SelectItem value="MONEY">مال (ريال)</SelectItem>}
+                      {selectedProject?.needsSkills && <SelectItem value="SKILL">مهارة</SelectItem>}
+                      {selectedProject?.needsMaterials && <SelectItem value="MATERIALS">مواد</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {supportForm.type === 'MONEY' && (
+                  <div>
+                    <Label>المبلغ (ريال)</Label>
+                    <Input
+                      type="number"
+                      value={supportForm.amount}
+                      onChange={(e) => setSupportForm({ ...supportForm, amount: parseFloat(e.target.value) || 0 })}
+                      min="0"
+                    />
+                  </div>
+                )}
+                
+                {supportForm.type === 'TIME' && (
+                  <div>
+                    <Label>عدد الساعات</Label>
+                    <Input
+                      type="number"
+                      value={supportForm.hours}
+                      onChange={(e) => setSupportForm({ ...supportForm, hours: parseInt(e.target.value) || 0 })}
+                      min="0"
+                    />
+                  </div>
+                )}
+                
+                {(supportForm.type === 'SKILL' || supportForm.type === 'MATERIALS') && (
+                  <div>
+                    <Label>التفاصيل</Label>
+                    <Textarea
+                      value={supportForm.description}
+                      onChange={(e) => setSupportForm({ ...supportForm, description: e.target.value })}
+                      placeholder="اشرح ما يمكنك تقديمه..."
+                      rows={3}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedProject(null)}>إلغاء</Button>
+            <Button 
+              onClick={() => supportProject(selectedProject?.id)}
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+            >
+              <Heart className="w-4 h-4 ml-2" />
+              تأكيد الدعم
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
 // مكون كفة الميزان
 const ScalePan = ({ side, values, delay }: { side: 'left' | 'right'; values: any[]; delay: number }) => {
   return (
@@ -3739,13 +4578,14 @@ export default function HomePage() {
         </motion.div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-8 w-full max-w-5xl mx-auto mb-6 bg-white/80 backdrop-blur">
+          <TabsList className="grid grid-cols-9 w-full max-w-6xl mx-auto mb-6 bg-white/80 backdrop-blur">
             <TabsTrigger value="services" className="flex items-center gap-1 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Briefcase className="w-4 h-4" /><span className="hidden sm:inline">الخدمات</span></TabsTrigger>
             <TabsTrigger value="products" className="flex items-center gap-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Package className="w-4 h-4" /><span className="hidden sm:inline">المنتجات</span></TabsTrigger>
             <TabsTrigger value="khalifas" className="flex items-center gap-1 data-[state=active]:bg-blue-500 data-[state=active]:text-white"><Users className="w-4 h-4" /><span className="hidden sm:inline">الخلفاء</span></TabsTrigger>
             <TabsTrigger value="academy" className="flex items-center gap-1 data-[state=active]:bg-indigo-500 data-[state=active]:text-white"><GraduationCap className="w-4 h-4" /><span className="hidden sm:inline">الأكاديمية</span></TabsTrigger>
             <TabsTrigger value="integrity" className="flex items-center gap-1 data-[state=active]:bg-teal-500 data-[state=active]:text-white"><Shield className="w-4 h-4" /><span className="hidden sm:inline">النزاهة</span></TabsTrigger>
             <TabsTrigger value="donations" className="flex items-center gap-1 data-[state=active]:bg-rose-500 data-[state=active]:text-white"><HeartHandshake className="w-4 h-4" /><span className="hidden sm:inline">التبرعات</span></TabsTrigger>
+            <TabsTrigger value="projects" className="flex items-center gap-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white"><Zap className="w-4 h-4" /><span className="hidden sm:inline">المشاريع</span></TabsTrigger>
             <TabsTrigger value="community" className="flex items-center gap-1 data-[state=active]:bg-purple-500 data-[state=active]:text-white"><MessageCircle className="w-4 h-4" /><span className="hidden sm:inline">المجتمع</span></TabsTrigger>
             <TabsTrigger value="contact" className="flex items-center gap-1 data-[state=active]:bg-slate-600 data-[state=active]:text-white"><Phone className="w-4 h-4" /><span className="hidden sm:inline">تواصل</span></TabsTrigger>
           </TabsList>
@@ -3976,6 +4816,10 @@ export default function HomePage() {
 
           <TabsContent value="donations">
             <DonationTab user={user} toast={toast} />
+          </TabsContent>
+
+          <TabsContent value="projects">
+            <ProjectsTab user={user} toast={toast} />
           </TabsContent>
 
           <TabsContent value="community">
