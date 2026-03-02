@@ -7,7 +7,7 @@ import {
   TrendingUp, Globe, MapPin, Clock, Star, AlertTriangle, CheckCircle,
   XCircle, Send, Plus, Trash2, Eye, Search, Filter, ChevronDown,
   Award, Ban, UserCheck, UserX, Clock4, BarChart3, PieChart, Mail,
-  Server, Key, TestTube
+  Server, Key, TestTube, GraduationCap, BookOpen, Play, Edit, Save
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,6 +72,28 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
   })
   const [testEmail, setTestEmail] = useState('')
 
+  // الأكاديمية
+  const [courses, setCourses] = useState<any[]>([])
+  const [selectedCourse, setSelectedCourse] = useState<any>(null)
+  const [lessons, setLessons] = useState<any[]>([])
+  const [showLessonDialog, setShowLessonDialog] = useState(false)
+  const [editingLesson, setEditingLesson] = useState<any>(null)
+  const [courseForm, setCourseForm] = useState({
+    title: '',
+    description: '',
+    icon: 'BookOpen',
+    color: 'emerald',
+    isPublished: false
+  })
+  const [lessonForm, setLessonForm] = useState({
+    title: '',
+    content: '',
+    videoUrl: '',
+    imageUrl: '',
+    duration: 0,
+    isPublished: false
+  })
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -79,6 +101,7 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
     fetchLocations()
     fetchAnnouncements()
     fetchEmailSettings()
+    fetchCourses()
   }, [])
 
   useEffect(() => {
@@ -199,6 +222,125 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
         toast({ title: 'تم الإرسال', description: 'تم إرسال البريد الاختباري بنجاح' })
       } else {
         toast({ title: 'خطأ', description: data.error || data.details, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  // الأكاديمية
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch('/api/admin/academy')
+      const data = await res.json()
+      if (res.ok) {
+        setCourses(data.courses || [])
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error)
+    }
+  }
+
+  const fetchLessons = async (courseId: string) => {
+    try {
+      const res = await fetch(`/api/admin/academy/lessons?courseId=${courseId}`)
+      const data = await res.json()
+      if (res.ok) {
+        setLessons(data.lessons || [])
+      }
+    } catch (error) {
+      console.error('Error fetching lessons:', error)
+    }
+  }
+
+  const createCourse = async () => {
+    if (!courseForm.title) {
+      toast({ title: 'تنبيه', description: 'عنوان الدورة مطلوب', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/admin/academy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(courseForm)
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الإنشاء', description: 'تم إنشاء الدورة بنجاح' })
+        setCourseForm({ title: '', description: '', icon: 'BookOpen', color: 'emerald', isPublished: false })
+        fetchCourses()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const updateCoursePublish = async (id: string, isPublished: boolean) => {
+    try {
+      const res = await fetch('/api/admin/academy', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isPublished })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم التحديث', description: isPublished ? 'تم نشر الدورة' : 'تم إلغاء نشر الدورة' })
+        fetchCourses()
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const deleteCourse = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف الدورة وجميع دروسها؟')) return
+    try {
+      const res = await fetch(`/api/admin/academy?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الحذف', description: 'تم حذف الدورة بنجاح' })
+        fetchCourses()
+        setSelectedCourse(null)
+        setLessons([])
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const createLesson = async () => {
+    if (!lessonForm.title || !lessonForm.content) {
+      toast({ title: 'تنبيه', description: 'العنوان والمحتوى مطلوبان', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/admin/academy/lessons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...lessonForm, courseId: selectedCourse.id })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الإنشاء', description: 'تم إنشاء الدرس بنجاح' })
+        setLessonForm({ title: '', content: '', videoUrl: '', imageUrl: '', duration: 0, isPublished: false })
+        setShowLessonDialog(false)
+        fetchLessons(selectedCourse.id)
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const deleteLesson = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف الدرس؟')) return
+    try {
+      const res = await fetch(`/api/admin/academy/lessons?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الحذف', description: 'تم حذف الدرس بنجاح' })
+        fetchLessons(selectedCourse.id)
       }
     } catch (error) {
       toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
@@ -353,6 +495,7 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
               { id: 'users', icon: Users, label: 'إدارة الخلفاء' },
               { id: 'notifications', icon: Bell, label: 'إرسال إشعارات' },
               { id: 'announcements', icon: Megaphone, label: 'المنشورات الرسمية' },
+              { id: 'academy', icon: GraduationCap, label: 'الأكاديمية' },
               { id: 'email', icon: Mail, label: 'إعدادات البريد' },
             ].map(item => (
               <button
@@ -1144,6 +1287,281 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
                       </div>
                     </CardContent>
                   </Card>
+                </motion.div>
+              )}
+
+              {/* Academy Section */}
+              {activeSection === 'academy' && (
+                <motion.div
+                  key="academy"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="grid grid-cols-3 gap-6"
+                >
+                  {/* Courses List */}
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <GraduationCap className="w-5 h-5 text-emerald-500" />
+                        الدورات التعليمية
+                      </CardTitle>
+                      <CardDescription>
+                        إدارة دورات أكاديمية ميزان الوصل
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <ScrollArea className="h-[400px]">
+                        {courses.map((course) => (
+                          <div
+                            key={course.id}
+                            className={`p-3 rounded-lg cursor-pointer transition-all mb-2 ${
+                              selectedCourse?.id === course.id
+                                ? 'bg-emerald-100 border-2 border-emerald-500'
+                                : 'bg-slate-50 hover:bg-slate-100'
+                            }`}
+                            onClick={() => {
+                              setSelectedCourse(course)
+                              fetchLessons(course.id)
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <BookOpen className="w-4 h-4 text-emerald-500" />
+                                <span className="font-bold text-sm">{course.title}</span>
+                              </div>
+                              {course.isPublished && (
+                                <Badge className="bg-emerald-500 text-white text-xs">منشورة</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-1">{course.description}</p>
+                            <p className="text-xs text-slate-400 mt-1">{toWesternNumbers(course._count?.lessons || 0)} درس</p>
+                          </div>
+                        ))}
+                      </ScrollArea>
+                    </CardContent>
+                    <CardFooter className="flex gap-2">
+                      <Button onClick={() => {
+                        setSelectedCourse(null)
+                        setLessons([])
+                      }} variant="outline" className="flex-1">
+                        <Plus className="w-4 h-4 ml-1" />
+                        دورة جديدة
+                      </Button>
+                    </CardFooter>
+                  </Card>
+
+                  {/* Course Form / Lessons */}
+                  <div className="col-span-2 space-y-6">
+                    {!selectedCourse ? (
+                      /* Create Course Form */
+                      <Card className="border-0 shadow-lg">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Plus className="w-5 h-5 text-emerald-500" />
+                            إنشاء دورة جديدة
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <Label>عنوان الدورة</Label>
+                            <Input
+                              value={courseForm.title}
+                              onChange={(e) => setCourseForm({...courseForm, title: e.target.value})}
+                              placeholder="مثال: مبادئ التبادل العادل"
+                            />
+                          </div>
+                          <div>
+                            <Label>وصف الدورة</Label>
+                            <Textarea
+                              value={courseForm.description}
+                              onChange={(e) => setCourseForm({...courseForm, description: e.target.value})}
+                              placeholder="وصف مختصر لمحتوى الدورة..."
+                              rows={3}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>اللون</Label>
+                              <Select
+                                value={courseForm.color}
+                                onValueChange={(v) => setCourseForm({...courseForm, color: v})}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="emerald">أخضر</SelectItem>
+                                  <SelectItem value="blue">أزرق</SelectItem>
+                                  <SelectItem value="amber">ذهبي</SelectItem>
+                                  <SelectItem value="purple">بنفسجي</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex items-end">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={courseForm.isPublished}
+                                  onChange={(e) => setCourseForm({...courseForm, isPublished: e.target.checked})}
+                                  className="w-4 h-4 rounded"
+                                />
+                                <span className="text-sm">نشر الدورة</span>
+                              </label>
+                            </div>
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          <Button onClick={createCourse} className="w-full gradient-emerald text-white">
+                            <Save className="w-4 h-4 ml-2" />
+                            إنشاء الدورة
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ) : (
+                      /* Lessons Management */
+                      <>
+                        <Card className="border-0 shadow-lg">
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <CardTitle>{selectedCourse.title}</CardTitle>
+                                <CardDescription>{selectedCourse.description}</CardDescription>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateCoursePublish(selectedCourse.id, !selectedCourse.isPublished)}
+                                >
+                                  {selectedCourse.isPublished ? 'إلغاء النشر' : 'نشر'}
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => deleteCourse(selectedCourse.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="font-bold">الدروس ({toWesternNumbers(lessons.length)})</h4>
+                              <Button size="sm" onClick={() => setShowLessonDialog(true)}>
+                                <Plus className="w-4 h-4 ml-1" />
+                                درس جديد
+                              </Button>
+                            </div>
+                            <ScrollArea className="h-[300px]">
+                              {lessons.map((lesson, index) => (
+                                <div key={lesson.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg mb-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-sm">
+                                      {toWesternNumbers(index + 1)}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-sm">{lesson.title}</p>
+                                      <p className="text-xs text-slate-500">
+                                        {lesson.duration ? `${toWesternNumbers(lesson.duration)} دقيقة` : 'غير محدد'}
+                                        {lesson.videoUrl && ' • فيديو'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {lesson.isPublished && (
+                                      <Badge className="bg-emerald-100 text-emerald-600 text-xs">منشور</Badge>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => deleteLesson(lesson.id)}
+                                      className="text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                              {lessons.length === 0 && (
+                                <div className="text-center py-8 text-slate-500">
+                                  لا توجد دروس بعد. أضف أول درس!
+                                </div>
+                              )}
+                            </ScrollArea>
+                          </CardContent>
+                        </Card>
+
+                        {/* Lesson Dialog */}
+                        <Dialog open={showLessonDialog} onOpenChange={setShowLessonDialog}>
+                          <DialogContent className="max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>إضافة درس جديد</DialogTitle>
+                              <DialogDescription>
+                                أضف درساً جديداً لدورة {selectedCourse.title}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>عنوان الدرس</Label>
+                                <Input
+                                  value={lessonForm.title}
+                                  onChange={(e) => setLessonForm({...lessonForm, title: e.target.value})}
+                                  placeholder="عنوان الدرس..."
+                                />
+                              </div>
+                              <div>
+                                <Label>محتوى الدرس</Label>
+                                <Textarea
+                                  value={lessonForm.content}
+                                  onChange={(e) => setLessonForm({...lessonForm, content: e.target.value})}
+                                  placeholder="محتوى الدرس التعليمي..."
+                                  rows={5}
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label>رابط الفيديو (اختياري)</Label>
+                                  <Input
+                                    value={lessonForm.videoUrl}
+                                    onChange={(e) => setLessonForm({...lessonForm, videoUrl: e.target.value})}
+                                    placeholder="https://..."
+                                  />
+                                </div>
+                                <div>
+                                  <Label>المدة (دقائق)</Label>
+                                  <Input
+                                    type="number"
+                                    value={lessonForm.duration}
+                                    onChange={(e) => setLessonForm({...lessonForm, duration: parseInt(e.target.value) || 0})}
+                                    placeholder="15"
+                                  />
+                                </div>
+                              </div>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={lessonForm.isPublished}
+                                  onChange={(e) => setLessonForm({...lessonForm, isPublished: e.target.checked})}
+                                  className="w-4 h-4 rounded"
+                                />
+                                <span className="text-sm">نشر الدرس</span>
+                              </label>
+                            </div>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setShowLessonDialog(false)}>
+                                إلغاء
+                              </Button>
+                              <Button onClick={createLesson} className="gradient-emerald text-white">
+                                حفظ الدرس
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

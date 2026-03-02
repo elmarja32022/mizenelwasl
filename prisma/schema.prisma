@@ -245,3 +245,49 @@ model EmailSettings {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// أكاديمية مذهب ميزان الوصل
+model AcademyCourse {
+  id          String   @id @default(cuid())
+  title       String   // عنوان الدورة
+  description String   // وصف الدورة
+  icon        String?  // أيقونة الدورة
+  color       String   @default("emerald") // لون الدورة
+  order       Int      @default(0) // ترتيب العرض
+  isPublished Boolean  @default(false) // منشورة أم لا
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  lessons     AcademyLesson[] // الدروس
+}
+
+model AcademyLesson {
+  id          String   @id @default(cuid())
+  courseId    String   // معرف الدورة
+  title       String   // عنوان الدرس
+  content     String   // محتوى الدرس
+  videoUrl    String?  // رابط الفيديو
+  imageUrl    String?  // صورة الدرس
+  order       Int      @default(0) // ترتيب العرض
+  duration    Int      @default(0) // مدة الدرس بالدقائق
+  isPublished Boolean  @default(false) // منشور أم لا
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  course      AcademyCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress    UserLessonProgress[] // تقدم المستخدمين
+}
+
+// تقدم المستخدم في الدروس
+model UserLessonProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  lessonId   String
+  completed  Boolean  @default(false)
+  completedAt DateTime?
+  createdAt  DateTime @default(now())
+  
+  lesson     AcademyLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, lessonId]) // كل مستخدم له سجل واحد لكل درس
+}
