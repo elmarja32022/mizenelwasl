@@ -847,6 +847,7 @@ interface User {
   name: string
   email: string
   phone?: string
+  image?: string
   country?: string
   city?: string
   neighborhood?: string
@@ -868,7 +869,7 @@ interface Service {
   duration: number
   status: string
   images?: string
-  user: { id: string; name: string; city: string; trustLevel: string; integrityScore: number; rating: number }
+  user: { id: string; name: string; image?: string; city: string; trustLevel: string; integrityScore: number; rating: number }
 }
 
 interface Product {
@@ -882,7 +883,7 @@ interface Product {
   type: string
   category: string
   images?: string
-  user: { id: string; name: string; city: string; trustLevel: string }
+  user: { id: string; name: string; image?: string; city: string; trustLevel: string }
 }
 
 interface Post {
@@ -942,6 +943,9 @@ export default function HomePage() {
   const [productFilter, setProductFilter] = useState({ type: '', category: '', city: '', search: '' })
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '', country: '', city: '', neighborhood: '', image: '' })
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const { toast } = useToast()
 
@@ -1046,6 +1050,68 @@ export default function HomePage() {
   }
   const handlePostVote = async (postId: string, type: 'POSITIVE' | 'NEGATIVE') => {
     try { const res = await fetch(`/api/community/${postId}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) }); const data = await res.json(); if (data.success) { fetchPosts() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
+  }
+
+  const openProfileModal = () => {
+    if (user) {
+      setProfileForm({
+        name: user.name,
+        phone: user.phone || '',
+        country: user.country || '',
+        city: user.city || '',
+        neighborhood: user.neighborhood || '',
+        image: user.image || ''
+      })
+      setShowProfileModal(true)
+    }
+  }
+
+  const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    
+    setUploadingImage(true)
+    const formData = new FormData()
+    formData.append('images', files[0])
+    
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      if (data.success && data.images[0]) {
+        setProfileForm({ ...profileForm, image: data.images[0] })
+        toast({ title: 'تم رفع الصورة', description: 'تم رفع صورة الملف الشخصي بنجاح' })
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ أثناء رفع الصورة', variant: 'destructive' })
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const res = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileForm)
+      })
+      const data = await res.json()
+      if (data.success) {
+        setUser({ ...user!, ...data.user })
+        setShowProfileModal(false)
+        toast({ title: 'تم التحديث', description: 'تم تحديث الملف الشخصي بنجاح' })
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
   }
 
   const formatTime = (minutes: number) => { const hours = Math.floor(minutes / 60); const mins = minutes % 60; if (hours > 0 && mins > 0) return `${hours} ساعة و ${mins} دقيقة`; if (hours > 0) return `${hours} ساعة`; return `${mins} دقيقة` }
@@ -1708,15 +1774,35 @@ export default function HomePage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white">{user.name[0]}</div>
+                    {user.image ? (
+                      <img src={user.image} alt={user.name} className="w-8 h-8 rounded-full object-cover border-2 border-emerald-300" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white font-bold">{user.name[0]}</div>
+                    )}
                     <span className="hidden md:inline">{user.name}</span>
                     <Badge className="bg-emerald-100 text-emerald-700 text-xs">خليفة</Badge>
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <div className="p-3 border-b"><div className="font-bold">{user.name}</div><div className="text-sm text-gray-500">{user.email}</div><div className="flex items-center gap-2 mt-2"><Badge className={getTrustBadge(user.trustLevel).class}>{getTrustBadge(user.trustLevel).icon} {user.trustLevel}</Badge><span className="text-sm text-gray-500">{user.integrityScore}%</span></div></div>
-                  <DropdownMenuItem><User className="w-4 h-4 ml-2" />ملفي الشخصي</DropdownMenuItem>
+                  <div className="p-3 border-b">
+                    <div className="flex items-center gap-3">
+                      {user.image ? (
+                        <img src={user.image} alt={user.name} className="w-12 h-12 rounded-full object-cover border-2 border-emerald-300" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full gradient-emerald flex items-center justify-center text-white text-lg font-bold">{user.name[0]}</div>
+                      )}
+                      <div>
+                        <div className="font-bold">{user.name}</div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge className={getTrustBadge(user.trustLevel).class + ' text-white'}>{getTrustBadge(user.trustLevel).icon} {user.trustLevel}</Badge>
+                      <span className="text-sm text-gray-500">{formatNumber(user.integrityScore)}%</span>
+                    </div>
+                  </div>
+                  <DropdownMenuItem onClick={openProfileModal}><User className="w-4 h-4 ml-2" />ملفي الشخصي</DropdownMenuItem>
                   <DropdownMenuItem><Clock className="w-4 h-4 ml-2" />رصيد الوقت: {formatTime(user.timeBalance)}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowCovenant(true)}><BookOpen className="w-4 h-4 ml-2" />ميثاق الوصل</DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -1838,7 +1924,11 @@ export default function HomePage() {
                           </div>
                           <div className="text-left shrink-0">
                             <div className="flex items-center gap-2 mb-2">
-                              <div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white text-sm">{s.user.name[0]}</div>
+                              {s.user.image ? (
+                                <img src={s.user.image} alt={s.user.name} className="w-8 h-8 rounded-full object-cover border border-emerald-300" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full gradient-emerald flex items-center justify-center text-white text-sm font-bold">{s.user.name[0]}</div>
+                              )}
                               <div>
                                 <div className="font-medium text-sm">{s.user.name}</div>
                                 <Badge className={getTrustBadge(s.user.trustLevel).class + ' text-xs text-white'}>{s.user.trustLevel}</Badge>
@@ -1939,7 +2029,11 @@ export default function HomePage() {
                         </div>
                         <div className="text-left shrink-0">
                           <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm">{p.user.name[0]}</div>
+                            {p.user.image ? (
+                              <img src={p.user.image} alt={p.user.name} className="w-8 h-8 rounded-full object-cover border border-amber-300" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm font-bold">{p.user.name[0]}</div>
+                            )}
                             <div>
                               <div className="font-medium text-sm">{p.user.name}</div>
                               <Badge className={getTrustBadge(p.user.trustLevel).class + ' text-xs text-white'}>{p.user.trustLevel}</Badge>
@@ -2077,9 +2171,13 @@ export default function HomePage() {
                   <div className="p-4 bg-slate-50 rounded-xl">
                     <h4 className="font-bold text-slate-700 mb-2">مقدم الخدمة</h4>
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full gradient-emerald flex items-center justify-center text-white text-lg font-bold">
-                        {selectedService.user.name[0]}
-                      </div>
+                      {selectedService.user.image ? (
+                        <img src={selectedService.user.image} alt={selectedService.user.name} className="w-12 h-12 rounded-full object-cover border-2 border-emerald-300" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full gradient-emerald flex items-center justify-center text-white text-lg font-bold">
+                          {selectedService.user.name[0]}
+                        </div>
+                      )}
                       <div>
                         <div className="font-bold">{selectedService.user.name}</div>
                         <div className="flex items-center gap-2">
@@ -2183,9 +2281,13 @@ export default function HomePage() {
                   <div className="p-4 bg-slate-50 rounded-xl">
                     <h4 className="font-bold text-slate-700 mb-2">صاحب المنتج</h4>
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center text-white text-lg font-bold">
-                        {selectedProduct.user.name[0]}
-                      </div>
+                      {selectedProduct.user.image ? (
+                        <img src={selectedProduct.user.image} alt={selectedProduct.user.name} className="w-12 h-12 rounded-full object-cover border-2 border-amber-300" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center text-white text-lg font-bold">
+                          {selectedProduct.user.name[0]}
+                        </div>
+                      )}
                       <div>
                         <div className="font-bold">{selectedProduct.user.name}</div>
                         <div className="flex items-center gap-2">
@@ -2225,6 +2327,109 @@ export default function HomePage() {
               </div>
             )
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Modal */}
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-center">الملف الشخصي</DialogTitle>
+            <DialogDescription className="text-center">تحديث بياناتك الشخصية</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProfile} className="space-y-4 mt-4">
+            {/* Profile Image */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative">
+                {profileForm.image ? (
+                  <img 
+                    src={profileForm.image} 
+                    alt="صورة الملف" 
+                    className="w-24 h-24 rounded-full object-cover border-4 border-emerald-300 shadow-lg"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full gradient-emerald flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+                    {user?.name?.[0] || '?'}
+                  </div>
+                )}
+                <label className="absolute bottom-0 right-0 w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-emerald-600 transition-colors shadow-md">
+                  <Upload className="w-4 h-4 text-white" />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleProfileImageUpload}
+                    disabled={uploadingImage}
+                  />
+                </label>
+              </div>
+              <p className="text-sm text-gray-500">
+                {uploadingImage ? 'جاري الرفع...' : 'اضغط على الأيقونة لرفع صورة'}
+              </p>
+            </div>
+            
+            <div>
+              <Label>الاسم الكامل</Label>
+              <Input 
+                value={profileForm.name} 
+                onChange={(e) => setProfileForm({...profileForm, name: e.target.value})} 
+                required 
+              />
+            </div>
+            <div>
+              <Label>رقم الهاتف</Label>
+              <Input 
+                value={profileForm.phone} 
+                onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})} 
+                placeholder="اختياري"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>الدولة</Label>
+                <Select 
+                  value={profileForm.country} 
+                  onValueChange={(v) => setProfileForm({...profileForm, country: v, city: ''})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الدولة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations?.countries.map(c => (
+                      <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>المدينة</Label>
+                <Select 
+                  value={profileForm.city} 
+                  onValueChange={(v) => setProfileForm({...profileForm, city: v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المدينة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {profileForm.country && locations?.cities[profileForm.country]?.map(city => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>الحي</Label>
+              <Input 
+                value={profileForm.neighborhood} 
+                onChange={(e) => setProfileForm({...profileForm, neighborhood: e.target.value})} 
+                placeholder="اختياري"
+              />
+            </div>
+            <Button type="submit" className="w-full gradient-emerald text-white font-bold">
+              حفظ التغييرات
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
 

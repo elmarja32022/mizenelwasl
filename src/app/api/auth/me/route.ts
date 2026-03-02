@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         name: user.name,
         phone: user.phone,
+        image: user.image,
         country: user.country,
         city: user.city,
         neighborhood: user.neighborhood,
