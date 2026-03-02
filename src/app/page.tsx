@@ -1053,6 +1053,39 @@ export default function HomePage() {
   const handleExchangeRequest = async (type: 'SERVICE' | 'PRODUCT', providerId: string, itemId: string, timeAmount: number) => {
     try { const res = await fetch('/api/exchanges', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, providerId, serviceId: type === 'SERVICE' ? itemId : undefined, productId: type === 'PRODUCT' ? itemId : undefined, timeAmount }) }); const data = await res.json(); if (data.success) { toast({ title: 'تم إرسال طلب التبادل' }); fetchUser() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
   }
+
+  const handleDeleteService = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذه الخدمة؟')) return
+    try {
+      const res = await fetch(`/api/services/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الحذف', description: 'تم حذف الخدمة بنجاح' })
+        fetchServices()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', variant: 'destructive' })
+    }
+  }
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الحذف', description: 'تم حذف المنتج بنجاح' })
+        fetchProducts()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', variant: 'destructive' })
+    }
+  }
+
   const handlePostVote = async (postId: string, type: 'POSITIVE' | 'NEGATIVE') => {
     try { const res = await fetch(`/api/community/${postId}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) }); const data = await res.json(); if (data.success) { fetchPosts() } else { toast({ title: 'خطأ', description: data.error, variant: 'destructive' }) } } catch (error) { toast({ title: 'خطأ', variant: 'destructive' }) }
   }
@@ -1077,6 +1110,30 @@ export default function HomePage() {
       }
     } catch (error) {
       toast({ title: 'خطأ', variant: 'destructive' })
+    }
+  }
+
+  const markNotificationRead = async (id: string) => {
+    try {
+      await fetch(`/api/notifications/${id}/read`, { method: 'PUT' })
+      fetchNotifications()
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
+
+  const markAllNotificationsRead = async () => {
+    try {
+      // تحديد جميع الإشعارات كمقروءة
+      await Promise.all(
+        notifications.filter(n => !n.read).map(n => 
+          fetch(`/api/notifications/${n.id}/read`, { method: 'PUT' })
+        )
+      )
+      fetchNotifications()
+      toast({ title: 'تم', description: 'تم تحديد جميع الإشعارات كمقروءة' })
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error)
     }
   }
 
@@ -1795,8 +1852,15 @@ export default function HomePage() {
                   <Button variant="ghost" size="icon" className="relative"><Bell className="w-5 h-5" />{unreadCount > 0 && <span className="absolute -top-1 -left-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">{unreadCount}</span>}</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <div className="p-2 font-bold border-b">الإشعارات</div>
-                  <ScrollArea className="h-64">{notifications.length === 0 ? <div className="p-4 text-center text-gray-500">لا توجد إشعارات</div> : notifications.slice(0, 10).map(n => <div key={n.id} className={`p-3 border-b ${!n.read ? 'bg-emerald-50' : ''}`}><div className="font-medium">{n.title}</div><div className="text-sm text-gray-500">{n.message}</div></div>)}</ScrollArea>
+                  <div className="p-2 font-bold border-b flex items-center justify-between">
+                    <span>الإشعارات</span>
+                    {unreadCount > 0 && (
+                      <Button variant="ghost" size="sm" onClick={markAllNotificationsRead} className="text-xs text-emerald-600">
+                        تحديد الكل كمقروء
+                      </Button>
+                    )}
+                  </div>
+                  <ScrollArea className="h-64">{notifications.length === 0 ? <div className="p-4 text-center text-gray-500">لا توجد إشعارات</div> : notifications.slice(0, 10).map(n => <div key={n.id} className={`p-3 border-b cursor-pointer hover:bg-slate-50 ${!n.read ? 'bg-emerald-50' : ''}`} onClick={() => markNotificationRead(n.id)}><div className="font-medium">{n.title}</div><div className="text-sm text-gray-500">{n.message}</div><div className="text-xs text-gray-400 mt-1">{formatDate(n.createdAt)} - {formatTime24(n.createdAt)}</div></div>)}</ScrollArea>
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>
@@ -2410,6 +2474,19 @@ export default function HomePage() {
                       طلب تبادل
                     </Button>
                   )}
+                  {selectedService.user.id === user.id && (
+                    <Button 
+                      variant="destructive"
+                      onClick={() => {
+                        handleDeleteService(selectedService.id)
+                        setSelectedService(null)
+                      }}
+                      className="flex-1"
+                    >
+                      <Trash2 className="w-5 h-5 ml-2" />
+                      حذف الخدمة
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={() => setSelectedService(null)} className="px-6">
                     إغلاق
                   </Button>
@@ -2517,6 +2594,19 @@ export default function HomePage() {
                     >
                       <Handshake className="w-5 h-5 ml-2" />
                       طلب تبادل
+                    </Button>
+                  )}
+                  {selectedProduct.user.id === user.id && (
+                    <Button 
+                      variant="destructive"
+                      onClick={() => {
+                        handleDeleteProduct(selectedProduct.id)
+                        setSelectedProduct(null)
+                      }}
+                      className="flex-1"
+                    >
+                      <Trash2 className="w-5 h-5 ml-2" />
+                      حذف المنتج
                     </Button>
                   )}
                   <Button variant="outline" onClick={() => setSelectedProduct(null)} className="px-6">
