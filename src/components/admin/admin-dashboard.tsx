@@ -20,6 +20,7 @@ import { Progress } from '@/components/ui/progress'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
 
 interface AdminDashboardProps {
@@ -817,6 +818,3 @@ export default function AdminDashboard({ user, onClose }: AdminDashboardProps) {
     </div>
   )
 }
-
-// Import DropdownMenu
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
