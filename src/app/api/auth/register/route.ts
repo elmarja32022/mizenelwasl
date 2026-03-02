@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     })
 
     // تعيين cookie
-    response.cookies.set('session', user.id, {
+    response.cookies.set('session_user_id', user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
