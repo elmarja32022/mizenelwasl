@@ -761,7 +761,11 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
           const nearbyData = await nearbyRes.json()
           setNearbyKhalifas(nearbyData.khalifas || [])
           setStats(nearbyData.stats)
+        } else if (nearbyRes.status === 401) {
+          // المستخدم غير مسجل الدخول - لا نسجل خطأ
+          setNearbyKhalifas([])
         } else {
+          // أخطاء أخرى فقط نسجلها
           console.error('Failed to load nearby khalifas:', nearbyRes.status)
           setNearbyKhalifas([])
         }
@@ -770,12 +774,15 @@ const KhalifasTab = ({ user, toast }: { user: any; toast: any }) => {
         if (convRes.ok) {
           const convData = await convRes.json()
           setConversations(convData.conversations || [])
+        } else if (convRes.status === 401) {
+          // المستخدم غير مسجل الدخول - لا نسجل خطأ
+          setConversations([])
         } else {
           console.error('Failed to load conversations:', convRes.status)
           setConversations([])
         }
       } catch (error) {
-        console.error('Error loading data:', error)
+        // خطأ في الشبكة - لا نسجل خطأ للمستخدم
         setNearbyKhalifas([])
         setConversations([])
       } finally {
