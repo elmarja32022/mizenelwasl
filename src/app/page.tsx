@@ -12,7 +12,8 @@ import {
   Menu, XCircle, Eye, Calendar, MapPin, HeartHandshake,
   Building, Timer, Gem, BadgeCheck, Smile, Gift, CircleDot,
   Sun, Moon, Leaf, Droplets, Wind, Sparkle, BookOpen,
-  Feather, Scroll, Signature, Image as ImageIcon, Trash2, Upload
+  Feather, Scroll, Signature, Image as ImageIcon, Trash2, Upload,
+  Lock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,7 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
+import AdminDashboard from '@/components/admin/admin-dashboard'
 
 // Covenant Charter Component
 const CovenantCharter = ({ onAgree, agreed = false }: { onAgree?: () => void; agreed?: boolean }) => {
@@ -945,6 +947,7 @@ export default function HomePage() {
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false)
   const [profileForm, setProfileForm] = useState({ name: '', phone: '', country: '', city: '', neighborhood: '', image: '' })
   const [uploadingImage, setUploadingImage] = useState(false)
   const [commentForm, setCommentForm] = useState({ content: '' })
@@ -1830,6 +1833,14 @@ export default function HomePage() {
                   <DropdownMenuItem onClick={openProfileModal}><User className="w-4 h-4 ml-2" />ملفي الشخصي</DropdownMenuItem>
                   <DropdownMenuItem><Clock className="w-4 h-4 ml-2" />رصيد الوقت: {formatTime(user.timeBalance)}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowCovenant(true)}><BookOpen className="w-4 h-4 ml-2" />ميثاق الوصل</DropdownMenuItem>
+                  {user.isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setShowAdminDashboard(true)} className="text-purple-600 font-bold">
+                        <Lock className="w-4 h-4 ml-2" />لوحة تحكم الخليفة
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-red-500"><LogOut className="w-4 h-4 ml-2" />تسجيل الخروج</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -2620,6 +2631,11 @@ export default function HomePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Admin Dashboard */}
+      {showAdminDashboard && user?.isAdmin && (
+        <AdminDashboard user={user} onClose={() => setShowAdminDashboard(false)} />
+      )}
 
       <footer className="bg-slate-900 text-white py-6 mt-8">
         <div className="container mx-auto px-4 text-center">

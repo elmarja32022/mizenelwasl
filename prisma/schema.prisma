@@ -27,6 +27,8 @@ model User {
   totalExchanges Int      @default(0)
   covenantSigned Boolean  @default(false) // توقيع ميثاق الوصل والعهد
   covenantSignedAt DateTime? // تاريخ توقيع الميثاق
+  isAdmin        Boolean  @default(false) // صلاحيات الخليفة المختار
+  isSuspended    Boolean  @default(false) // تعليق الحساب
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -147,14 +149,31 @@ model PostVote {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  type      String // EXCHANGE_REQUEST | EXCHANGE_RESPONSE | RATING | SYSTEM
-  title     String
-  message   String
-  read      Boolean  @default(false)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  type         String // EXCHANGE_REQUEST | EXCHANGE_RESPONSE | RATING | SYSTEM | ANNOUNCEMENT | WARNING
+  title        String
+  message      String
+  read         Boolean  @default(false)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetScope  String?  @default("ALL") // ALL | COUNTRY | CITY | NEIGHBORHOOD | USER
+  targetValue  String?  // قيمة الهدف (اسم الدولة/المدينة/الحي/معرف المستخدم)
+  createdAt    DateTime @default(now())
+}
+
+// منشورات الخليفة الرسمية
+model KhalifaAnnouncement {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  type        String   @default("ANNOUNCEMENT") // ANNOUNCEMENT | WARNING | UPDATE | EVENT
+  priority    String   @default("NORMAL") // HIGH | NORMAL | LOW
+  isPinned    Boolean  @default(true) // مثبت في الأعلى
+  targetScope String   @default("ALL") // ALL | COUNTRY | CITY | NEIGHBORHOOD
+  targetValue String?  // قيمة الهدف
+  expiresAt   DateTime? // تاريخ انتهاء الظهور
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ContactMessage {

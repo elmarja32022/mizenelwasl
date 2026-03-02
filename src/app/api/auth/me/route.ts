@@ -45,6 +45,8 @@ export async function GET(request: NextRequest) {
         rating: user.rating,
         totalExchanges: user.totalExchanges,
         covenantSigned: user.covenantSigned,
+        isAdmin: user.isAdmin,
+        isSuspended: user.isSuspended,
         services: user.services,
         products: user.products,
         counts: user._count

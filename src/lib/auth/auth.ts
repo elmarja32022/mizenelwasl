@@ -15,6 +15,8 @@ export interface SessionUser {
   trustLevel: string;
   rating: number;
   totalExchanges: number;
+  isAdmin: boolean;
+  isSuspended: boolean;
 }
 
 // Hash password using SHA-256
@@ -66,6 +68,8 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       trustLevel: user.trustLevel,
       rating: user.rating,
       totalExchanges: user.totalExchanges,
+      isAdmin: user.isAdmin,
+      isSuspended: user.isSuspended,
     };
   } catch {
     return null;
@@ -85,4 +89,39 @@ export function calculateTrustLevel(integrityScore: number): string {
   if (integrityScore >= 50) return 'موثوق';
   if (integrityScore >= 30) return 'محذر';
   return 'مجمد';
+}
+
+// Verify token from request cookies (for API routes)
+export async function verifyToken(request: any): Promise<SessionUser | null> {
+  try {
+    const sessionId = request.cookies.get('session')?.value || 
+                      request.cookies.get('session_user_id')?.value;
+    
+    if (!sessionId) return null;
+    
+    const user = await db.user.findUnique({
+      where: { id: sessionId },
+    });
+    
+    if (!user) return null;
+    
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      country: user.country,
+      city: user.city,
+      neighborhood: user.neighborhood,
+      timeBalance: user.timeBalance,
+      integrityScore: user.integrityScore,
+      trustLevel: user.trustLevel,
+      rating: user.rating,
+      totalExchanges: user.totalExchanges,
+      isAdmin: user.isAdmin,
+      isSuspended: user.isSuspended,
+    };
+  } catch {
+    return null;
+  }
 }

@@ -2,28 +2,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import crypto from 'crypto'
 
-// بيانات تجريبية
+// إنشاء البيانات الأولية بما فيها الخليفة المختار
 export async function POST(request: NextRequest) {
   try {
-    // Check if this is a Vercel deployment with read-only filesystem
-    const isVercel = process.env.VERCEL === '1'
-    
-    if (isVercel) {
-      return NextResponse.json({ 
-        error: 'هذه الميزة غير متوفرة في بيئة الإنتاج. قاعدة البيانات للقراءة فقط.',
-        hint: 'استخدم قاعدة بيانات سحابية مثل Vercel Postgres أو Supabase للبيانات الديناميكية.'
-      }, { status: 403 })
-    }
-    
     // التحقق من وجود بيانات مسبقة
     const existingUsers = await db.user.count()
     if (existingUsers > 0) {
       return NextResponse.json({ message: 'البيانات موجودة مسبقاً', count: existingUsers })
     }
 
-    // إنشاء مستخدمين تجريبيين
     const hashedPassword = crypto.createHash('sha256').update('123456').digest('hex')
     
+    // إنشاء الخليفة المختار (الأدمن)
+    const khalifa = await db.user.create({
+      data: {
+        email: 'khalifa@mizan.com',
+        name: 'الخليفة المختار',
+        password: hashedPassword,
+        phone: '0500000000',
+        country: 'SA',
+        city: 'مكة المكرمة',
+        neighborhood: 'الحرم',
+        timeBalance: 999999,
+        integrityScore: 100,
+        trustLevel: 'خليفة مميز',
+        rating: 5.0,
+        totalExchanges: 0,
+        isAdmin: true,
+        covenantSigned: true,
+        covenantSignedAt: new Date()
+      }
+    })
+    
+    // إنشاء مستخدمين تجريبيين
     const users = await Promise.all([
       db.user.create({
         data: {
@@ -36,9 +47,11 @@ export async function POST(request: NextRequest) {
           neighborhood: 'النرجس',
           timeBalance: 480,
           integrityScore: 95,
-          trustLevel: 'مميز',
+          trustLevel: 'خليفة مميز',
           rating: 4.8,
-          totalExchanges: 12
+          totalExchanges: 12,
+          covenantSigned: true,
+          covenantSignedAt: new Date()
         }
       }),
       db.user.create({
@@ -52,9 +65,11 @@ export async function POST(request: NextRequest) {
           neighborhood: 'الحمرة',
           timeBalance: 320,
           integrityScore: 88,
-          trustLevel: 'موثوق جداً',
+          trustLevel: 'خليفة صادق',
           rating: 4.5,
-          totalExchanges: 8
+          totalExchanges: 8,
+          covenantSigned: true,
+          covenantSignedAt: new Date()
         }
       }),
       db.user.create({
@@ -68,9 +83,11 @@ export async function POST(request: NextRequest) {
           neighborhood: 'المرسي',
           timeBalance: 200,
           integrityScore: 75,
-          trustLevel: 'موثوق جداً',
+          trustLevel: 'خليفة موثوق',
           rating: 4.2,
-          totalExchanges: 5
+          totalExchanges: 5,
+          covenantSigned: true,
+          covenantSignedAt: new Date()
         }
       }),
       db.user.create({
@@ -84,9 +101,11 @@ export async function POST(request: NextRequest) {
           neighborhood: 'مصر الجديدة',
           timeBalance: 150,
           integrityScore: 65,
-          trustLevel: 'موثوق',
+          trustLevel: 'خليفة موثوق',
           rating: 3.9,
-          totalExchanges: 3
+          totalExchanges: 3,
+          covenantSigned: true,
+          covenantSignedAt: new Date()
         }
       }),
       db.user.create({
@@ -100,23 +119,22 @@ export async function POST(request: NextRequest) {
           neighborhood: 'الفيصلية',
           timeBalance: 400,
           integrityScore: 92,
-          trustLevel: 'مميز',
+          trustLevel: 'خليفة مميز',
           rating: 4.9,
-          totalExchanges: 15
+          totalExchanges: 15,
+          covenantSigned: true,
+          covenantSignedAt: new Date()
         }
       })
     ])
 
     // إنشاء فئات
     const categories = await Promise.all([
-      // فئات الخدمات
       db.category.create({ data: { name: 'Education', nameAr: 'التعليم', type: 'SERVICE', icon: 'book' } }),
       db.category.create({ data: { name: 'Technology', nameAr: 'التكنولوجيا', type: 'SERVICE', icon: 'laptop' } }),
       db.category.create({ data: { name: 'Health', nameAr: 'الصحة والعافية', type: 'SERVICE', icon: 'heart' } }),
       db.category.create({ data: { name: 'Professional', nameAr: 'الخدمات المهنية', type: 'SERVICE', icon: 'briefcase' } }),
       db.category.create({ data: { name: 'Home', nameAr: 'الخدمات المنزلية', type: 'SERVICE', icon: 'home' } }),
-      
-      // فئات المنتجات
       db.category.create({ data: { name: 'Dairy', nameAr: 'الألبان', type: 'PRODUCT', icon: 'milk' } }),
       db.category.create({ data: { name: 'Eggs', nameAr: 'البيض', type: 'PRODUCT', icon: 'egg' } }),
       db.category.create({ data: { name: 'Dates', nameAr: 'التمر', type: 'PRODUCT', icon: 'date' } }),
@@ -128,7 +146,7 @@ export async function POST(request: NextRequest) {
     ])
 
     // إنشاء خدمات تجريبية
-    const services = await Promise.all([
+    await Promise.all([
       db.service.create({
         data: {
           title: 'دروس في اللغة الإنجليزية',
@@ -161,49 +179,16 @@ export async function POST(request: NextRequest) {
           duration: 120,
           userId: users[1].id
         }
-      }),
-      db.service.create({
-        data: {
-          title: 'أحتاج دروس في الرياضيات',
-          titleAr: 'أحتاج دروس في الرياضيات',
-          description: 'أبحث عن معلم رياضيات لمساعدة ابني في الصف الثالث المتوسط.',
-          type: 'REQUEST',
-          category: 'Education',
-          duration: 60,
-          userId: users[3].id
-        }
-      }),
-      db.service.create({
-        data: {
-          title: 'خدمات سباكة',
-          titleAr: 'خدمات سباكة',
-          description: 'جميع أعمال السباكة. تصليح تسريبات، تركيب صواني، وصيانة عامة.',
-          type: 'OFFER',
-          category: 'Home',
-          duration: 120,
-          userId: users[4].id
-        }
-      }),
-      db.service.create({
-        data: {
-          title: 'أحتاج مصمم جرافيك',
-          titleAr: 'أحتاج مصمم جرافيك',
-          description: 'أبحث عن مصمم جرافيك لتصميم شعار لمشروعي الجديد.',
-          type: 'REQUEST',
-          category: 'Professional',
-          duration: 180,
-          userId: users[0].id
-        }
       })
     ])
 
     // إنشاء منتجات تجريبية
-    const products = await Promise.all([
+    await Promise.all([
       db.product.create({
         data: {
           name: 'عسل طبيعي سدر',
           nameAr: 'عسل طبيعي سدر',
-          description: 'عسل سدر طبيعي 100% من مناحلنا في جبال السروات. جودة ممتازة.',
+          description: 'عسل سدر طبيعي 100% من مناحلنا في جبال السروات.',
           quantity: 5,
           unit: 'كيلو',
           quality: 'ممتاز',
@@ -216,7 +201,7 @@ export async function POST(request: NextRequest) {
         data: {
           name: 'تمر خلاص',
           nameAr: 'تمر خلاص',
-          description: 'تمر خلاص من مزرعتنا في الأحساء. طعم ممتاز وجودة عالية.',
+          description: 'تمر خلاص من مزرعتنا في الأحساء.',
           quantity: 20,
           unit: 'كيلو',
           quality: 'ممتاز',
@@ -224,118 +209,31 @@ export async function POST(request: NextRequest) {
           category: 'Dates',
           userId: users[0].id
         }
-      }),
-      db.product.create({
-        data: {
-          name: 'بيض بلدي طازج',
-          nameAr: 'بيض بلدي طازج',
-          description: 'بيض بلدي طازج من دجاج تربيتنا المنزلية. طبيعي 100%.',
-          quantity: 30,
-          unit: 'قطعة',
-          quality: 'جيد جداً',
-          type: 'OFFER',
-          category: 'Eggs',
-          userId: users[1].id
-        }
-      }),
-      db.product.create({
-        data: {
-          name: 'خضروات عضوية',
-          nameAr: 'خضروات عضوية',
-          description: 'خضروات طازجة من مزرعتنا. طماطم، خيار، فلفل، بقدونس.',
-          quantity: 10,
-          unit: 'كيلو',
-          quality: 'جيد جداً',
-          type: 'OFFER',
-          category: 'Vegetables',
-          userId: users[2].id
-        }
-      }),
-      db.product.create({
-        data: {
-          name: 'أحتاج حليب طازج',
-          nameAr: 'أحتاج حليب طازج',
-          description: 'أبحث عن حليب طازج يومياً. الكمية: 2 لتر يومياً.',
-          quantity: 14,
-          unit: 'لتر',
-          quality: 'جيد جداً',
-          type: 'REQUEST',
-          category: 'Dairy',
-          userId: users[3].id
-        }
-      }),
-      db.product.create({
-        data: {
-          name: 'سمك طازج',
-          nameAr: 'سمك طازج',
-          description: 'سمك هامور طازج من سواحل الخليج. يتم صيده يومياً.',
-          quantity: 8,
-          unit: 'كيلو',
-          quality: 'ممتاز',
-          type: 'OFFER',
-          category: 'Fish',
-          userId: users[4].id
-        }
       })
     ])
 
-    // إنشاء منشورات مجتمعية
-    const posts = await Promise.all([
-      db.communityPost.create({
-        data: {
-          title: 'قصة نجاح: كيف غيّر الميزان حياتي',
-          content: 'كنت أبحث عن طريقة لأستفيد من مهاراتي في التعليم. من خلال الميزان، تمكنت من تبادل دروس الرياضيات مع خدمات أحتاجها. شكراً لهذه المنصة الرائعة!',
-          type: 'SUCCESS_STORY',
-          userId: users[0].id
-        }
-      }),
-      db.communityPost.create({
-        data: {
-          title: 'اقتراح: إضافة نظام التقييم بالنجوم',
-          content: 'أقترح إضافة نظام تقييم بالنجوم لكل خدمة ومنتج. هذا سيساعد في تحسين جودة التبادلات وزيادة الثقة بين الأعضاء.',
-          type: 'SUGGESTION',
-          userId: users[1].id
-        }
-      }),
-      db.communityPost.create({
-        data: {
-          title: 'نقاش: أفضل طريقة لزيادة رصيد الساعات',
-          content: 'ما هي أفضل طريقة لزيادة رصيد الساعات؟ هل تعتمدون على الخدمات أم المنتجات؟ شاركونا تجاربكم!',
-          type: 'DISCUSSION',
-          userId: users[2].id
-        }
-      })
-    ])
-
-    // إنشاء إشعارات تجريبية
-    await Promise.all([
-      db.notification.create({
-        data: {
-          type: 'SYSTEM',
-          title: 'مرحباً بك في الميزان!',
-          message: 'أهلاً أحمد! رصيدك الافتتاحي 5 ساعات. ابدأ التبادل الآن!',
-          userId: users[0].id
-        }
-      }),
-      db.notification.create({
-        data: {
-          type: 'EXCHANGE_REQUEST',
-          title: 'طلب تبادل جديد',
-          message: 'لديك طلب تبادل جديد من فاطمة علي',
-          userId: users[0].id
-        }
-      })
-    ])
+    // إنشاء منشور رسمي من الخليفة
+    await db.khalifaAnnouncement.create({
+      data: {
+        title: 'مرحباً بكم في ميزان الوصل',
+        content: 'يسرنا انضمامكم لمذهب ميزان الوصل. هذا المكان مخصص للتبادل العادل والتعاون بين الخلفاء. نرجو منكم الالتزام بميثاق الوصل والعهد.',
+        type: 'ANNOUNCEMENT',
+        priority: 'HIGH',
+        isPinned: true,
+        targetScope: 'ALL'
+      }
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'تم إنشاء البيانات التجريبية بنجاح',
+      message: 'تم إنشاء البيانات الأولية بنجاح',
+      khalifa: {
+        email: 'khalifa@mizan.com',
+        password: '123456'
+      },
       stats: {
-        users: users.length,
-        categories: categories.length,
-        services: services.length,
-        products: products.length,
-        posts: posts.length
+        users: users.length + 1,
+        categories: categories.length
       }
     })
   } catch (error) {
