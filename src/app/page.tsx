@@ -1782,6 +1782,753 @@ const IntegrityTab = ({ user, toast }: { user: any; toast: any }) => {
   )
 }
 
+// مكون تبويب التبرعات للمجتمع
+const DonationTab = ({ user, toast }: { user: any; toast: any }) => {
+  const [activeSection, setActiveSection] = useState<'overview' | 'create' | 'my' | 'all'>('overview')
+  const [donations, setDonations] = useState<any[]>([])
+  const [myDonations, setMyDonations] = useState<any[]>([])
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [filterType, setFilterType] = useState('ALL')
+  
+  // نموذج التبرع
+  const [donationForm, setDonationForm] = useState({
+    type: 'TIME',
+    title: '',
+    description: '',
+    amount: 0,
+    unit: 'ساعة',
+    category: '',
+    priority: 'NORMAL',
+    isAnonymous: false,
+    beneficiary: '',
+    notes: ''
+  })
+
+  useEffect(() => {
+    fetchDonations()
+  }, [user?.id])
+
+  const fetchDonations = async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    try {
+      const [allRes, myRes] = await Promise.all([
+        fetch('/api/donations'),
+        fetch('/api/donations?my=true')
+      ])
+      
+      if (allRes.ok) {
+        const allData = await allRes.json()
+        setDonations(allData.donations || [])
+        setStats(allData.stats)
+      }
+      
+      if (myRes.ok) {
+        const myData = await myRes.json()
+        setMyDonations(myData.donations || [])
+      }
+    } catch (error) {
+      console.error('Error fetching donations:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitDonation = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!donationForm.title.trim()) {
+      toast({ title: 'تنبيه', description: 'يرجى إدخال عنوان التبرع', variant: 'destructive' })
+      return
+    }
+
+    try {
+      const res = await fetch('/api/donations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(donationForm)
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ 
+          title: 'تم تسجيل التبرع', 
+          description: `بارك الله فيك! حصلت على +${data.integrityBonus}% في رصيد نزاهتك` 
+        })
+        setDonationForm({
+          type: 'TIME',
+          title: '',
+          description: '',
+          amount: 0,
+          unit: 'ساعة',
+          category: '',
+          priority: 'NORMAL',
+          isAnonymous: false,
+          beneficiary: '',
+          notes: ''
+        })
+        fetchDonations()
+        setActiveSection('my')
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ أثناء تسجيل التبرع', variant: 'destructive' })
+    }
+  }
+
+  const updateDonationStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`/api/donations/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم التحديث', description: 'تم تحديث حالة التبرع' })
+        fetchDonations()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const deleteDonation = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا التبرع؟')) return
+    try {
+      const res = await fetch(`/api/donations/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: 'تم الحذف', description: 'تم حذف التبرع بنجاح' })
+        fetchDonations()
+      } else {
+        toast({ title: 'خطأ', description: data.error, variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' })
+    }
+  }
+
+  const toWesternNumbers = (num: number | string): string => {
+    const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
+    let result = String(num)
+    arabicNums.forEach((arabic, western) => {
+      result = result.replace(new RegExp(arabic, 'g'), String(western))
+    })
+    return result
+  }
+
+  const getTypeInfo = (type: string) => {
+    const types: Record<string, { icon: any; color: string; label: string; bg: string }> = {
+      TIME: { icon: Clock, color: 'text-blue-600', label: 'وقت', bg: 'bg-blue-100' },
+      MONEY: { icon: Gem, color: 'text-emerald-600', label: 'مال', bg: 'bg-emerald-100' },
+      GOODS: { icon: Package, color: 'text-amber-600', label: 'بضائع', bg: 'bg-amber-100' },
+      SKILL: { icon: Sparkles, color: 'text-purple-600', label: 'مهارة', bg: 'bg-purple-100' }
+    }
+    return types[type] || types.TIME
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statuses: Record<string, { class: string; label: string }> = {
+      PENDING: { class: 'bg-amber-100 text-amber-700', label: 'قيد الانتظار' },
+      APPROVED: { class: 'bg-blue-100 text-blue-700', label: 'تمت الموافقة' },
+      COMPLETED: { class: 'bg-emerald-100 text-emerald-700', label: 'مكتمل' },
+      CANCELLED: { class: 'bg-red-100 text-red-700', label: 'ملغي' }
+    }
+    return statuses[status] || statuses.PENDING
+  }
+
+  const getPriorityBadge = (priority: string) => {
+    const priorities: Record<string, { class: string; label: string }> = {
+      LOW: { class: 'bg-slate-100 text-slate-600', label: 'منخفضة' },
+      NORMAL: { class: 'bg-blue-100 text-blue-600', label: 'عادية' },
+      HIGH: { class: 'bg-orange-100 text-orange-600', label: 'عالية' },
+      URGENT: { class: 'bg-red-100 text-red-600', label: 'عاجلة' }
+    }
+    return priorities[priority] || priorities.NORMAL
+  }
+
+  const filteredDonations = filterType === 'ALL' 
+    ? donations 
+    : donations.filter(d => d.type === filterType)
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <HeartHandshake className="w-16 h-16 mx-auto text-rose-500 animate-pulse mb-4" />
+        <p className="text-slate-500">جاري تحميل التبرعات...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6" dir="rtl">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 mx-auto flex items-center justify-center shadow-xl mb-4">
+          <HeartHandshake className="w-10 h-10 text-white" />
+        </div>
+        <h2 className="text-3xl font-bold text-slate-800">تبرع للمجتمع</h2>
+        <p className="text-slate-500 mt-2">﴿وَتَعَاوَنُوا عَلَى الْبِرِّ وَالتَّقْوَى﴾ • شارك في بناء مجتمع متكافل</p>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
+        {[
+          { id: 'overview', label: 'نظرة عامة', icon: HeartHandshake },
+          { id: 'create', label: 'تبرع جديد', icon: Plus },
+          { id: 'my', label: 'تبرعاتي', icon: Gift },
+          { id: 'all', label: 'جميع التبرعات', icon: Users }
+        ].map((item) => (
+          <Button
+            key={item.id}
+            variant={activeSection === item.id ? 'default' : 'outline'}
+            onClick={() => setActiveSection(item.id as any)}
+            className={activeSection === item.id ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white' : ''}
+          >
+            <item.icon className="w-4 h-4 ml-2" />
+            {item.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Overview Section */}
+      {activeSection === 'overview' && (
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Stats Cards */}
+          <Card className="shadow-lg border-0">
+            <CardHeader className="bg-gradient-to-l from-rose-500 to-pink-600 text-white rounded-t-lg">
+              <CardTitle className="flex items-center gap-2">
+                <HeartHandshake className="w-5 h-5" />
+                إحصائيات التبرعات
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-rose-50 rounded-xl">
+                  <div className="text-3xl font-bold text-rose-600">{toWesternNumbers(stats?.total || 0)}</div>
+                  <div className="text-sm text-slate-600">تبرع مكتمل</div>
+                </div>
+                <div className="text-center p-4 bg-emerald-50 rounded-xl">
+                  <div className="text-3xl font-bold text-emerald-600">{toWesternNumbers(myDonations.length)}</div>
+                  <div className="text-sm text-slate-600">تبرعاتك</div>
+                </div>
+              </div>
+              
+              {/* By Type */}
+              {stats?.byType && stats.byType.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <h4 className="font-bold text-slate-700">التبرعات حسب النوع</h4>
+                  {stats.byType.map((t: any, i: number) => {
+                    const typeInfo = getTypeInfo(t.type)
+                    return (
+                      <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-lg ${typeInfo.bg} flex items-center justify-center`}>
+                            <typeInfo.icon className={`w-4 h-4 ${typeInfo.color}`} />
+                          </div>
+                          <span className="font-medium">{typeInfo.label}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-bold">{toWesternNumbers(t.count)}</span>
+                          <span className="text-slate-500 mr-1">تبرع</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quick Donate Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                لماذا التبرع؟
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-gradient-to-l from-emerald-50 to-teal-50 rounded-xl border-r-4 border-emerald-500">
+                <p className="text-slate-700 leading-relaxed">
+                  التبرع في مذهب ميزان الوصل ليس مجرد عطاء مادي، بل هو 
+                  <span className="font-bold text-emerald-600"> تكافل اجتماعي</span> يبني أواصر المحبة 
+                  ويقوي روابط المجتمع.
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                {[
+                  { icon: Shield, text: 'زيادة رصيد النزاهة', color: 'text-blue-500' },
+                  { icon: Heart, text: 'الأجر من الله أولاً', color: 'text-rose-500' },
+                  { icon: Users, text: 'بناء مجتمع متكافل', color: 'text-purple-500' },
+                  { icon: Sparkles, text: 'مكافأة روحية ومعنوية', color: 'text-amber-500' }
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <item.icon className={`w-5 h-5 ${item.color}`} />
+                    <span className="text-slate-700">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Button 
+                onClick={() => setActiveSection('create')} 
+                className="w-full bg-gradient-to-r from-rose-500 to-pink-600 text-white py-6 text-lg"
+              >
+                <Heart className="w-5 h-5 ml-2" />
+                ابدأ التبرع الآن
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Recent Donations */}
+          <Card className="md:col-span-2 shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Gift className="w-5 h-5 text-rose-500" />
+                أحدث التبرعات
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {donations.length === 0 ? (
+                <div className="text-center py-8">
+                  <Gift className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+                  <p className="text-slate-500">لا توجد تبرعات بعد</p>
+                  <Button onClick={() => setActiveSection('create')} className="mt-4 bg-rose-500 text-white">
+                    كن أول المتبرعين
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-3 gap-4">
+                  {donations.slice(0, 6).map((donation: any) => {
+                    const typeInfo = getTypeInfo(donation.type)
+                    const statusInfo = getStatusBadge(donation.status)
+                    const TypeIcon = typeInfo.icon
+                    return (
+                      <Card key={donation.id} className="border shadow-sm hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className={`w-10 h-10 rounded-lg ${typeInfo.bg} flex items-center justify-center`}>
+                              <TypeIcon className={`w-5 h-5 ${typeInfo.color}`} />
+                            </div>
+                            <Badge className={statusInfo.class}>{statusInfo.label}</Badge>
+                          </div>
+                          <h4 className="font-bold text-slate-800 mb-1">{donation.title}</h4>
+                          <p className="text-sm text-slate-500 line-clamp-2">{donation.description}</p>
+                          <div className="flex items-center justify-between mt-3 text-xs text-slate-400">
+                            <span>{donation.isAnonymous ? 'مجهول' : donation.donor?.name}</span>
+                            <span>{new Date(donation.createdAt).toLocaleDateString('ar-SA')}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Create Donation Section */}
+      {activeSection === 'create' && (
+        <Card className="shadow-lg border-0 max-w-2xl mx-auto">
+          <CardHeader className="bg-gradient-to-l from-rose-500 to-pink-600 text-white rounded-t-lg">
+            <CardTitle className="flex items-center gap-2">
+              <Heart className="w-5 h-5" />
+              تبرع جديد
+            </CardTitle>
+            <CardDescription className="text-rose-100">
+              اختر نوع التبرع وعبّر عن عطائك
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <form onSubmit={submitDonation} className="space-y-6">
+              {/* Donation Type */}
+              <div>
+                <Label className="text-lg font-bold mb-3 block">نوع التبرع</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { type: 'TIME', icon: Clock, label: 'وقت', color: 'from-blue-500 to-blue-600', desc: 'ساعات عمل' },
+                    { type: 'MONEY', icon: Gem, label: 'مال', color: 'from-emerald-500 to-emerald-600', desc: 'تبرع مالي' },
+                    { type: 'GOODS', icon: Package, label: 'بضائع', color: 'from-amber-500 to-amber-600', desc: 'مواد وعينيات' },
+                    { type: 'SKILL', icon: Sparkles, label: 'مهارة', color: 'from-purple-500 to-purple-600', desc: 'خبرة وتدريب' }
+                  ].map((t) => (
+                    <div
+                      key={t.type}
+                      onClick={() => setDonationForm({ ...donationForm, type: t.type, unit: t.type === 'TIME' ? 'ساعة' : t.type === 'MONEY' ? 'ريال' : t.type === 'GOODS' ? 'قطعة' : 'جلسة' })}
+                      className={`cursor-pointer rounded-xl p-4 text-center border-2 transition-all ${
+                        donationForm.type === t.type 
+                          ? 'border-rose-500 bg-rose-50' 
+                          : 'border-slate-200 hover:border-rose-300'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 mx-auto mb-2 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center`}>
+                        <t.icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="font-bold">{t.label}</div>
+                      <div className="text-xs text-slate-500">{t.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <Label>عنوان التبرع *</Label>
+                <Input
+                  value={donationForm.title}
+                  onChange={(e) => setDonationForm({ ...donationForm, title: e.target.value })}
+                  placeholder="مثال: دروس خصوصية في الرياضيات"
+                  required
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label>الوصف</Label>
+                <Textarea
+                  value={donationForm.description}
+                  onChange={(e) => setDonationForm({ ...donationForm, description: e.target.value })}
+                  placeholder="اكتب تفاصيل التبرع..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Amount and Unit */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>الكمية/القيمة</Label>
+                  <Input
+                    type="number"
+                    value={donationForm.amount}
+                    onChange={(e) => setDonationForm({ ...donationForm, amount: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <Label>الوحدة</Label>
+                  <Select 
+                    value={donationForm.unit} 
+                    onValueChange={(v) => setDonationForm({ ...donationForm, unit: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {donationForm.type === 'TIME' && (
+                        <>
+                          <SelectItem value="ساعة">ساعة</SelectItem>
+                          <SelectItem value="يوم">يوم</SelectItem>
+                          <SelectItem value="أسبوع">أسبوع</SelectItem>
+                        </>
+                      )}
+                      {donationForm.type === 'MONEY' && (
+                        <>
+                          <SelectItem value="ريال">ريال</SelectItem>
+                          <SelectItem value="دولار">دولار</SelectItem>
+                          <SelectItem value="يورو">يورو</SelectItem>
+                        </>
+                      )}
+                      {donationForm.type === 'GOODS' && (
+                        <>
+                          <SelectItem value="قطعة">قطعة</SelectItem>
+                          <SelectItem value="كيلو">كيلو</SelectItem>
+                          <SelectItem value="كرتون">كرتون</SelectItem>
+                          <SelectItem value="علبة">علبة</SelectItem>
+                        </>
+                      )}
+                      {donationForm.type === 'SKILL' && (
+                        <>
+                          <SelectItem value="جلسة">جلسة</SelectItem>
+                          <SelectItem value="دورة">دورة</SelectItem>
+                          <SelectItem value="استشارة">استشارة</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Category and Priority */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>الفئة</Label>
+                  <Select 
+                    value={donationForm.category} 
+                    onValueChange={(v) => setDonationForm({ ...donationForm, category: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر الفئة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="تعليم">تعليم</SelectItem>
+                      <SelectItem value="صحة">صحة</SelectItem>
+                      <SelectItem value="غذاء">غذاء</SelectItem>
+                      <SelectItem value="ملابس">ملابس</SelectItem>
+                      <SelectItem value="إسكان">إسكان</SelectItem>
+                      <SelectItem value="نقل">نقل</SelectItem>
+                      <SelectItem value="أخرى">أخرى</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>الأولوية</Label>
+                  <Select 
+                    value={donationForm.priority} 
+                    onValueChange={(v) => setDonationForm({ ...donationForm, priority: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LOW">منخفضة</SelectItem>
+                      <SelectItem value="NORMAL">عادية</SelectItem>
+                      <SelectItem value="HIGH">عالية</SelectItem>
+                      <SelectItem value="URGENT">عاجلة</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Beneficiary */}
+              <div>
+                <Label>المستفيد (اختياري)</Label>
+                <Input
+                  value={donationForm.beneficiary}
+                  onChange={(e) => setDonationForm({ ...donationForm, beneficiary: e.target.value })}
+                  placeholder="مثال: طلاب المحتاجين، الأسر المتعففة..."
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label>ملاحظات إضافية</Label>
+                <Textarea
+                  value={donationForm.notes}
+                  onChange={(e) => setDonationForm({ ...donationForm, notes: e.target.value })}
+                  placeholder="أي تفاصيل إضافية..."
+                  rows={2}
+                />
+              </div>
+
+              {/* Anonymous Option */}
+              <div className="flex items-center gap-2 p-4 bg-slate-50 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="anonymous"
+                  checked={donationForm.isAnonymous}
+                  onChange={(e) => setDonationForm({ ...donationForm, isAnonymous: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="anonymous" className="text-sm text-slate-600 cursor-pointer">
+                  تبرع مجهول (لن يظهر اسمك للمستفيدين)
+                </Label>
+              </div>
+
+              {/* Submit */}
+              <Button type="submit" className="w-full bg-gradient-to-r from-rose-500 to-pink-600 text-white py-6 text-lg">
+                <Heart className="w-5 h-5 ml-2" />
+                تسجيل التبرع
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* My Donations Section */}
+      {activeSection === 'my' && (
+        <div className="space-y-4">
+          <h3 className="text-xl font-bold">تبرعاتي ({toWesternNumbers(myDonations.length)})</h3>
+          {myDonations.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Gift className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                <p className="text-slate-500">لم تقم بأي تبرع بعد</p>
+                <Button 
+                  onClick={() => setActiveSection('create')} 
+                  className="mt-4 bg-rose-500 text-white"
+                >
+                  ابدأ التبرع الآن
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {myDonations.map((donation: any) => {
+                const typeInfo = getTypeInfo(donation.type)
+                const statusInfo = getStatusBadge(donation.status)
+                const priorityInfo = getPriorityBadge(donation.priority)
+                const TypeIcon = typeInfo.icon
+                return (
+                  <Card key={donation.id} className="shadow border-0">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className={`w-12 h-12 rounded-xl ${typeInfo.bg} flex items-center justify-center`}>
+                            <TypeIcon className={`w-6 h-6 ${typeInfo.color}`} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-lg">{donation.title}</h4>
+                              <Badge className={statusInfo.class}>{statusInfo.label}</Badge>
+                              <Badge className={priorityInfo.class}>{priorityInfo.label}</Badge>
+                            </div>
+                            {donation.description && (
+                              <p className="text-sm text-slate-600 mb-2">{donation.description}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                              {donation.amount > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Target className="w-4 h-4" />
+                                  {toWesternNumbers(donation.amount)} {donation.unit}
+                                </span>
+                              )}
+                              {donation.category && (
+                                <span className="flex items-center gap-1">
+                                  <Package className="w-4 h-4" />
+                                  {donation.category}
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-4 h-4" />
+                                {new Date(donation.createdAt).toLocaleDateString('ar-SA')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {donation.status === 'PENDING' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => deleteDonation(donation.id)}
+                              className="text-red-500 border-red-200 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {donation.status === 'PENDING' && user.isAdmin && (
+                            <Button
+                              size="sm"
+                              onClick={() => updateDonationStatus(donation.id, 'APPROVED')}
+                              className="bg-emerald-500 text-white"
+                            >
+                              موافقة
+                            </Button>
+                          )}
+                          {donation.status === 'APPROVED' && (
+                            <Button
+                              size="sm"
+                              onClick={() => updateDonationStatus(donation.id, 'COMPLETED')}
+                              className="bg-blue-500 text-white"
+                            >
+                              إتمام
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* All Donations Section */}
+      {activeSection === 'all' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold">جميع التبرعات</h3>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">الكل</SelectItem>
+                <SelectItem value="TIME">وقت</SelectItem>
+                <SelectItem value="MONEY">مال</SelectItem>
+                <SelectItem value="GOODS">بضائع</SelectItem>
+                <SelectItem value="SKILL">مهارة</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {filteredDonations.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Gift className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                <p className="text-slate-500">لا توجد تبرعات</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredDonations.map((donation: any) => {
+                const typeInfo = getTypeInfo(donation.type)
+                const statusInfo = getStatusBadge(donation.status)
+                const priorityInfo = getPriorityBadge(donation.priority)
+                const TypeIcon = typeInfo.icon
+                return (
+                  <Card key={donation.id} className="shadow border-0 hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className={`w-12 h-12 rounded-xl ${typeInfo.bg} flex items-center justify-center`}>
+                            <TypeIcon className={`w-6 h-6 ${typeInfo.color}`} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-lg">{donation.title}</h4>
+                              <Badge className={statusInfo.class}>{statusInfo.label}</Badge>
+                            </div>
+                            {donation.description && (
+                              <p className="text-sm text-slate-600 mb-2">{donation.description}</p>
+                            )}
+                            <div className="flex items-center gap-3 text-sm text-slate-500">
+                              {!donation.isAnonymous && donation.donor && (
+                                <span className="flex items-center gap-1">
+                                  {donation.donor.image ? (
+                                    <img src={donation.donor.image} alt="" className="w-5 h-5 rounded-full" />
+                                  ) : (
+                                    <div className="w-5 h-5 rounded-full bg-rose-200 flex items-center justify-center text-xs">
+                                      {donation.donor.name?.[0]}
+                                    </div>
+                                  )}
+                                  {donation.donor.name}
+                                </span>
+                              )}
+                              {donation.isAnonymous && (
+                                <span className="text-slate-400">مجهول</span>
+                              )}
+                              {donation.amount > 0 && (
+                                <span>{toWesternNumbers(donation.amount)} {donation.unit}</span>
+                              )}
+                              <span>{new Date(donation.createdAt).toLocaleDateString('ar-SA')}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Badge className={priorityInfo.class}>{priorityInfo.label}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // مكون كفة الميزان
 const ScalePan = ({ side, values, delay }: { side: 'left' | 'right'; values: any[]; delay: number }) => {
   return (
@@ -2915,12 +3662,13 @@ export default function HomePage() {
         </motion.div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-7 w-full max-w-4xl mx-auto mb-6 bg-white/80 backdrop-blur">
+          <TabsList className="grid grid-cols-8 w-full max-w-5xl mx-auto mb-6 bg-white/80 backdrop-blur">
             <TabsTrigger value="services" className="flex items-center gap-1 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Briefcase className="w-4 h-4" /><span className="hidden sm:inline">الخدمات</span></TabsTrigger>
             <TabsTrigger value="products" className="flex items-center gap-1 data-[state=active]:bg-amber-500 data-[state=active]:text-white"><Package className="w-4 h-4" /><span className="hidden sm:inline">المنتجات</span></TabsTrigger>
             <TabsTrigger value="khalifas" className="flex items-center gap-1 data-[state=active]:bg-blue-500 data-[state=active]:text-white"><Users className="w-4 h-4" /><span className="hidden sm:inline">الخلفاء</span></TabsTrigger>
             <TabsTrigger value="academy" className="flex items-center gap-1 data-[state=active]:bg-indigo-500 data-[state=active]:text-white"><GraduationCap className="w-4 h-4" /><span className="hidden sm:inline">الأكاديمية</span></TabsTrigger>
             <TabsTrigger value="integrity" className="flex items-center gap-1 data-[state=active]:bg-teal-500 data-[state=active]:text-white"><Shield className="w-4 h-4" /><span className="hidden sm:inline">النزاهة</span></TabsTrigger>
+            <TabsTrigger value="donations" className="flex items-center gap-1 data-[state=active]:bg-rose-500 data-[state=active]:text-white"><HeartHandshake className="w-4 h-4" /><span className="hidden sm:inline">التبرعات</span></TabsTrigger>
             <TabsTrigger value="community" className="flex items-center gap-1 data-[state=active]:bg-purple-500 data-[state=active]:text-white"><MessageCircle className="w-4 h-4" /><span className="hidden sm:inline">المجتمع</span></TabsTrigger>
             <TabsTrigger value="contact" className="flex items-center gap-1 data-[state=active]:bg-slate-600 data-[state=active]:text-white"><Phone className="w-4 h-4" /><span className="hidden sm:inline">تواصل</span></TabsTrigger>
           </TabsList>
@@ -3147,6 +3895,10 @@ export default function HomePage() {
 
           <TabsContent value="integrity">
             <IntegrityTab user={user} toast={toast} />
+          </TabsContent>
+
+          <TabsContent value="donations">
+            <DonationTab user={user} toast={toast} />
           </TabsContent>
 
           <TabsContent value="community">
